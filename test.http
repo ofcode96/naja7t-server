@@ -4,14 +4,6 @@ POST https://naja7t-server.onrender.com/api/purchase/checkout
 Content-Type: application/json
 
 {
-  "fullName": "محمد العربي",
-  "phone": "0661234567",
-  "email": "student@example.com",
-  "courseId": "BAC-MATH-2026",
-  "courseTitle": "التحضير للبكالوريا - مادة الرياضيات",
-  "plan": "الدورة الكاملة",
-  "paymentMethod": "EDAHABIA",
   "amount": 4000,
-  "promoCode": "NAJA7T10",
-  "wilaya": "الجزائر"
+  "courseTitle": "التحضير للبكالوريا - مادة الرياضيات"
 }

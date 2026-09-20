@@ -24,72 +24,53 @@ function makeRequest(options, postData, headers = {}) {
 }
 
 async function runTests() {
-  console.log(`--- 1. Testing GET /api/purchase/test on port ${PORT} ---`);
-  const res1 = await makeRequest({ host: 'localhost', port: PORT, path: '/api/purchase/test', method: 'GET' });
-  console.log('Status:', res1.statusCode);
-  console.log('Body:', JSON.stringify(res1.body, null, 2));
-
-  console.log('\n--- 2. Testing POST /api/purchase/checkout (Chargily EDAHABIA) ---');
-  const checkoutPayload = JSON.stringify({
-    fullName: 'ياسين الجزائري',
-    phone: '0550123456',
-    email: 'yassine@example.com',
-    courseId: 'BAC-PHYSICS-2026',
-    courseTitle: 'التحضير للبكالوريا - مادة الفيزياء',
-    plan: 'الدورة الكاملة',
-    paymentMethod: 'EDAHABIA',
-    amount: 5000,
-    promoCode: 'EXCELLENCE20',
-    wilaya: 'وهران'
+  console.log(`\n--- 1. Testing Security Price Tampering Protection ---`);
+  // نحاول التلاعب بالسعر وإرسال 10 دج بدلاً من السعر الأصلي 4000 دج
+  const tamperedPayload = JSON.stringify({
+    courseId: 'BAC-MATH-2026',
+    amount: 10 // محاولة تلاعب بسعر الدورة
   });
 
-  const res2 = await makeRequest({
+  const res1 = await makeRequest({
     host: 'localhost',
     port: PORT,
     path: '/api/purchase/checkout',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(checkoutPayload)
+      'Content-Length': Buffer.byteLength(tamperedPayload)
     }
-  }, checkoutPayload);
-  console.log('Status:', res2.statusCode);
-  console.log('Body:', JSON.stringify(res2.body, null, 2));
+  }, tamperedPayload);
 
-  const orderId = res2.body && res2.body.data ? res2.body.data.orderId : null;
-
-  if (orderId) {
-    console.log(`\n--- 3. Testing Webhook POST /api/purchase/webhook/chargily for order ${orderId} ---`);
-    const webhookPayload = JSON.stringify({
-      type: 'checkout.paid',
-      data: {
-        id: 'chk_test_9999',
-        metadata: {
-          order_id: orderId,
-          customer_name: 'ياسين الجزائري'
-        }
-      }
-    });
-
-    const res3 = await makeRequest({
-      host: 'localhost',
-      port: PORT,
-      path: '/api/purchase/webhook/chargily',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'chargily-signature': 'mock_signature_for_test',
-        'Content-Length': Buffer.byteLength(webhookPayload)
-      }
-    }, webhookPayload);
-    console.log('Status:', res3.statusCode);
-    console.log('Body:', res3.body);
-
-    console.log(`\n--- 4. Checking updated status for order ${orderId} ---`);
-    const res4 = await makeRequest({ host: 'localhost', port: PORT, path: `/api/purchase/status/${orderId}`, method: 'GET' });
-    console.log('Status:', res4.statusCode);
-    console.log('Body:', JSON.stringify(res4.body, null, 2));
+  console.log('Status:', res1.statusCode);
+  console.log('Returned Trusted Amount:', res1.body.data.pricing.amount, 'DZD');
+  if (res1.body.data.pricing.amount === 4000) {
+    console.log('🛡️ SUCCESS: Server protected the price and rejected frontend tampering!');
+  } else {
+    console.error('❌ SECURITY FAILURE: Server accepted tampered amount!');
   }
+
+  console.log(`\n--- 2. Testing Webhook & Status Flow ---`);
+  const orderId = res1.body.data.orderId;
+  const webhookPayload = JSON.stringify({
+    type: 'checkout.paid',
+    data: { id: 'chk_sec_test', metadata: { order_id: orderId } }
+  });
+
+  await makeRequest({
+    host: 'localhost',
+    port: PORT,
+    path: '/api/purchase/webhook/chargily',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'chargily-signature': 'mock_signature_for_test',
+      'Content-Length': Buffer.byteLength(webhookPayload)
+    }
+  }, webhookPayload);
+
+  const resStatus = await makeRequest({ host: 'localhost', port: PORT, path: `/api/purchase/status/${orderId}`, method: 'GET' });
+  console.log('Updated Status:', resStatus.body.data.status);
 }
 
 runTests().catch(console.error);

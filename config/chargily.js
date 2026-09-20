@@ -6,6 +6,10 @@ const isConfigured = secretKey && !secretKey.includes('your_chargily_secret_key'
 
 let chargilyClient = null;
 
+// ذاكرة مؤقتة لتخزين المنتجات والأسعار وإعادة استخدامها لمنع تكرارها في Chargily Dashboard
+const productCache = new Map();
+const priceCache = new Map();
+
 if (isConfigured) {
   try {
     chargilyClient = new ChargilyClient({
@@ -21,40 +25,73 @@ if (isConfigured) {
 }
 
 /**
- * دالة إنشاء جلسة دفع لدى Chargily Pay V2
+ * دالة الحصول على منتج مخزن أو إنشائه مرة واحدة فقط لدى Chargily
+ */
+async function getOrCreateChargilyProduct(courseId, title) {
+  if (!chargilyClient) return null;
+
+  const cacheKey = courseId || title;
+  if (productCache.has(cacheKey)) {
+    return productCache.get(cacheKey);
+  }
+
+  const product = await chargilyClient.createProduct({
+    name: title,
+    description: `دورة منصة نجحت التعليمية - ${courseId || ''}`,
+  });
+
+  productCache.set(cacheKey, product);
+  return product;
+}
+
+/**
+ * دالة الحصول على سعر مخزن أو إنشائه مرة واحدة فقط لدى Chargily
+ */
+async function getOrCreateChargilyPrice(courseId, title, amount, currency = 'dzd') {
+  if (!chargilyClient) return null;
+
+  const product = await getOrCreateChargilyProduct(courseId, title);
+  const cacheKey = `${courseId || title}_${amount}_${currency.toLowerCase()}`;
+
+  if (priceCache.has(cacheKey)) {
+    return priceCache.get(cacheKey);
+  }
+
+  const price = await chargilyClient.createPrice({
+    amount: Math.round(amount),
+    currency: currency.toLowerCase(),
+    product_id: product.id,
+  });
+
+  priceCache.set(cacheKey, price);
+  return price;
+}
+
+/**
+ * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع إعادة استخدام المنتجات والأسعار
  */
 async function createChargilyCheckout({
   amount,
   currency = 'dzd',
   title = 'دورة منصة نجحت التعليمية',
+  courseId,
   customerName,
   customerEmail,
   orderId,
   successUrl,
   failureUrl,
   webhookUrl,
-  paymentMethod // 'edahabia' or 'cib' or null
+  paymentMethod
 }) {
   const success_url = successUrl || process.env.PAYMENT_SUCCESS_URL || 'https://naja7t.com/payment/success';
   const failure_url = failureUrl || process.env.PAYMENT_FAILURE_URL || 'https://naja7t.com/payment/failure';
 
-  // استخدام المكتبة الحقيقية إذا تم تهيئة المفاتيح
   if (chargilyClient) {
     try {
-      // 1. إنشاء المنتج Product
-      const product = await chargilyClient.createProduct({
-        name: title,
-        description: `طلب رقم: ${orderId} - المشتري: ${customerName}`,
-      });
+      // 1. إعادة استخدام أو إنشاء السعر المربوط بالمنتج مرة واحدة فقط
+      const price = await getOrCreateChargilyPrice(courseId, title, amount, currency);
 
-      // 2. إنشاء السعر Price
-      const price = await chargilyClient.createPrice({
-        amount: Math.round(amount),
-        currency: currency.toLowerCase(),
-        product_id: product.id,
-      });
-
-      // 3. إنشاء جلسة الدفع Checkout
+      // 2. إنشاء جلسة الدفع الخفيفة (Checkout)
       const checkoutPayload = {
         items: [
           {
@@ -66,7 +103,7 @@ async function createChargilyCheckout({
         failure_url,
         metadata: {
           order_id: orderId,
-          customer_name: customerName,
+          customer_name: customerName || '',
           customer_email: customerEmail || '',
         },
       };
@@ -94,14 +131,13 @@ async function createChargilyCheckout({
     }
   }
 
-  // وضع المحاكاة التلقائي عند عدم توفر المفتاح الحي بعد
-  console.log('⚡ إنشاء رابط محاكاة Chargily Pay للطلب:', orderId);
+  // وضع المحاكاة التلقائي عند الاختبار
   return {
     success: true,
     checkoutUrl: `https://pay.chargily.com/test/checkout/simulated-${orderId}`,
     checkoutId: `chk_simulated_${orderId}`,
     isMock: true,
-    message: 'Chargily SDK running in test simulation mode. Provide CHARGILY_SECRET_KEY in .env for live gateway.'
+    message: 'Chargily SDK running in simulation mode.'
   };
 }
 
@@ -110,7 +146,7 @@ async function createChargilyCheckout({
  */
 function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
   if (!secretKey || secretKey.includes('your_chargily_secret_key')) {
-    return true; // قبول التوقيع في وضع الاختارات المحلية
+    return true;
   }
   try {
     return verifySignature(rawBody, signatureHeader, secretKey);

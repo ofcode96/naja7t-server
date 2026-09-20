@@ -1,11 +1,12 @@
 const { pool } = require('../config/db');
 const { createChargilyCheckout, verifyChargilyWebhookSignature } = require('../config/chargily');
+const { getTrustedCourseDetails } = require('../config/coursesCatalog');
 
 // ذاكرة مؤقتة للمحاكاة (Mock in-memory storage)
 const mockOrders = new Map();
 
 /**
- * معالجة طلب الشراء وإنشاء جلسة الدفع عبر Chargily Pay
+ * معالجة طلب الشراء المحمي وإنشاء جلسة الدفع عبر Chargily Pay
  * POST /api/purchase/checkout
  */
 const processPurchase = async (req, res) => {
@@ -18,22 +19,19 @@ const processPurchase = async (req, res) => {
       courseTitle,
       plan,
       paymentMethod = 'EDAHABIA', // EDAHABIA, CIB, CCP, BaridiMob
-      amount,
-      promoCode,
       wilaya,
       successUrl,
       failureUrl
     } = req.body;
 
-    // 1. الاعتماد المباشر للمبلغ المدخل دون تعديل تلقائي تلقائي
-    const finalAmount = Number(amount) > 0 ? Number(amount) : 3500;
+    // 1. الأمان وتفادي التلاعب بالسعر: جلب السعر المحمي والمعتمد من كتالوج السيرفر الداخلي
+    const trustedCourse = getTrustedCourseDetails(courseId);
+    const finalAmount = trustedCourse.price; // الاعتماد التام للسعر المحمي في السيرفر
+    const itemTitle = (courseTitle && courseTitle.trim()) ? courseTitle.trim() : trustedCourse.title;
 
-    // 2. تكييف بيانات الزبون (جميع الحقول اختيارية وتتحمل المرور المباشر عبر الرابط)
+    // 2. تكييف بيانات الزبون الاختيارية
     const customerName = (fullName && fullName.trim()) ? fullName.trim() : 'طالب نجحت';
     const cleanPhone = phone ? phone.replace(/[\s-]/g, '') : '';
-    const itemTitle = (courseTitle && courseTitle.trim())
-      ? courseTitle.trim()
-      : (courseId ? `دورة ${courseId}` : 'دورة منصة نجحت التعليمية');
 
     // 3. إنشاء رقم طلب فريد
     const randomNum = Math.floor(10000 + Math.random() * 90000);
@@ -56,9 +54,10 @@ const processPurchase = async (req, res) => {
       const webhookUrl = `${protocol}://${hostHeader}/api/purchase/webhook/chargily`;
 
       const chargilyResult = await createChargilyCheckout({
-        amount: finalAmount, // يتم تمرير 4000 دج كما أُدخلت تماماً
+        amount: finalAmount, // السعر المحمي الآمن
         currency: 'dzd',
         title: itemTitle,
+        courseId: trustedCourse.id,
         customerName,
         customerEmail: email ? email.trim() : '',
         orderId,
@@ -86,7 +85,7 @@ const processPurchase = async (req, res) => {
       };
     }
 
-    // 5. بناء كائن الطلب النهائي
+    // 5. بناء وتخزين كائن الطلب النهائي
     const orderData = {
       orderId,
       customer: {
@@ -96,14 +95,13 @@ const processPurchase = async (req, res) => {
         wilaya: wilaya || null
       },
       item: {
-        courseId: courseId || 'CR-101',
+        courseId: trustedCourse.id,
         courseTitle: itemTitle,
         plan: plan || 'الدورة الكاملة'
       },
       pricing: {
         amount: finalAmount,
-        currency: 'DZD',
-        promoCode: promoCode || null
+        currency: 'DZD'
       },
       payment: paymentInfo,
       checkoutUrl,
