@@ -5,13 +5,23 @@ const dialect = process.env.DB_DIALECT || 'sqlite';
 let sequelize;
 
 if (dialect === 'sqlite') {
-  sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: process.env.DB_STORAGE || './naja7t.sqlite',
-    logging: false
-  });
-  console.log('📦 تم اختيار قاعدة البيانات المحلية: SQLite');
+  // تحميل مكتبة sqlite3 ديناميكياً فقط عند استخدام وضع SQLite محلياً
+  try {
+    const sqlite3 = require('sqlite3');
+    sequelize = new Sequelize({
+      dialect: 'sqlite',
+      dialectModule: sqlite3,
+      storage: process.env.DB_STORAGE || './naja7t.sqlite',
+      logging: false
+    });
+    console.log('📦 تم اختيار قاعدة البيانات المحلية: SQLite');
+  } catch (err) {
+    console.error('❌ خطأ في تحميل وحدة sqlite3:', err.message);
+    throw err;
+  }
 } else {
+  // في بيئة الإنتاج على Render (MySQL) يتم استدعاء mysql2 صراحة لمنع البحث عن GLIBC الخاص بـ sqlite3
+  const mysql2 = require('mysql2');
   sequelize = new Sequelize(
     process.env.DB_NAME || 'naja7t_db',
     process.env.DB_USER || 'root',
@@ -20,6 +30,7 @@ if (dialect === 'sqlite') {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT || 3306,
       dialect: 'mysql',
+      dialectModule: mysql2,
       logging: false,
       pool: {
         max: 10,
@@ -37,7 +48,6 @@ async function initDatabase() {
   try {
     await sequelize.authenticate();
     console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${dialect.toUpperCase()})`);
-    // مزامنة الهيكل والجداول تلقائياً
     await sequelize.sync({ alter: true });
     console.log('🔄 تم فحص ومزامنة الجداول بنجاح!');
     return true;

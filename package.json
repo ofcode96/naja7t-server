@@ -1,7 +1,7 @@
 {
   "name": "naja7t-server",
-  "version": "1.0.0",
-  "description": "Naja7t Platform Backend API - Express.js & MySQL",
+  "version": "2.0.0",
+  "description": "Naja7t Platform Backend API - Express.js, MySQL & SQLite",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,17 +12,20 @@
     "nodejs",
     "mysql",
     "naja7t",
+    "chargily",
     "dz"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@chargily/chargily-pay": "^2.1.0",
+    "@chargily/chargily-pay": "^2.3.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mysql2": "^3.12.0",
-    "sequelize": "^6.37.8",
-    "sqlite3": "^6.0.1"
+    "sequelize": "^6.37.5"
+  },
+  "devDependencies": {
+    "sqlite3": "^5.1.7"
   }
 }
