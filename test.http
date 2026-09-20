@@ -4,6 +4,6 @@ POST https://naja7t-server.onrender.com/api/purchase/checkout
 Content-Type: application/json
 
 {
-  "amount": 4000,
-  "courseTitle": "التحضير للبكالوريا - مادة الرياضيات"
+  "amount": 2900,
+  "courseTitle":  "باقة نجحت المتكاملة "
 }

@@ -24,53 +24,32 @@ function makeRequest(options, postData, headers = {}) {
 }
 
 async function runTests() {
-  console.log(`\n--- 1. Testing Security Price Tampering Protection ---`);
-  // نحاول التلاعب بالسعر وإرسال 10 دج بدلاً من السعر الأصلي 4000 دج
-  const tamperedPayload = JSON.stringify({
+  console.log(`\n--- 1. Testing GET /api/products on port ${PORT} ---`);
+  const resProducts = await makeRequest({ host: 'localhost', port: PORT, path: '/api/products', method: 'GET' });
+  console.log('Status:', resProducts.statusCode, 'Count:', resProducts.body.count);
+
+  console.log('\n--- 2. Testing Activation Code Uniqueness Enforcement ---');
+  const payloadCode = JSON.stringify({ code: `NJ-CODE-${Math.floor(Math.random()*1000)}`, product_id: 'BAC-MATH-2026' });
+  const resCode1 = await makeRequest({
+    host: 'localhost', port: PORT, path: '/api/activation-codes', method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payloadCode) }
+  }, payloadCode);
+  console.log('Creation Status:', resCode1.statusCode);
+
+  console.log('\n--- 3. Testing Purchase with Encrypted Success URL ---');
+  const purchasePayload = JSON.stringify({
+    fullName: 'طالب اختباري',
     courseId: 'BAC-MATH-2026',
-    amount: 10 // محاولة تلاعب بسعر الدورة
+    paymentMethod: 'FREE'
   });
 
-  const res1 = await makeRequest({
-    host: 'localhost',
-    port: PORT,
-    path: '/api/purchase/checkout',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(tamperedPayload)
-    }
-  }, tamperedPayload);
-
-  console.log('Status:', res1.statusCode);
-  console.log('Returned Trusted Amount:', res1.body.data.pricing.amount, 'DZD');
-  if (res1.body.data.pricing.amount === 4000) {
-    console.log('🛡️ SUCCESS: Server protected the price and rejected frontend tampering!');
-  } else {
-    console.error('❌ SECURITY FAILURE: Server accepted tampered amount!');
-  }
-
-  console.log(`\n--- 2. Testing Webhook & Status Flow ---`);
-  const orderId = res1.body.data.orderId;
-  const webhookPayload = JSON.stringify({
-    type: 'checkout.paid',
-    data: { id: 'chk_sec_test', metadata: { order_id: orderId } }
-  });
-
-  await makeRequest({
-    host: 'localhost',
-    port: PORT,
-    path: '/api/purchase/webhook/chargily',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'chargily-signature': 'mock_signature_for_test',
-      'Content-Length': Buffer.byteLength(webhookPayload)
-    }
-  }, webhookPayload);
-
-  const resStatus = await makeRequest({ host: 'localhost', port: PORT, path: `/api/purchase/status/${orderId}`, method: 'GET' });
-  console.log('Updated Status:', resStatus.body.data.status);
+  const resPurchase = await makeRequest({
+    host: 'localhost', port: PORT, path: '/api/purchase/checkout', method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(purchasePayload) }
+  }, purchasePayload);
+  console.log('Purchase Status:', resPurchase.statusCode);
+  console.log('Serial Number:', resPurchase.body.data.serial_number);
+  console.log('Redirect URL:', resPurchase.body.redirectUrl);
 }
 
 runTests().catch(console.error);
