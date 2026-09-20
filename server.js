@@ -11,6 +11,7 @@ const productRoutes = require('./routes/productRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const activationCodeRoutes = require('./routes/activationCodeRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,7 +19,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware الأساسية
 app.use(cors());
 
-// التقاط البايتات الخام (Raw Body Buffer) لمسار Webhook لـ Chargily Pay
+// التقاط البايتات الخام لمسار Webhook
 app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json' }));
 
 // معالجة JSON والـ Form Data
@@ -30,19 +31,20 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     name: process.env.APP_NAME || 'Naja7t API Server',
-    version: '2.0.0',
-    message: 'مرحباً بك في API منصة نجحت التعليمية - تدعم قواعد البيانات و Chargily Pay وتشفير روابط النجاح',
+    version: '2.1.0',
+    message: 'مرحباً بك في API منصة نجحت التعليمية - متكامل مع قواعد البيانات و Chargily Pay وتصفير البيانات',
     database: process.env.DB_DIALECT || 'sqlite',
     status: 'Running'
   });
 });
 
-// ربط جميع مسارات الـ API (CRUD & Purchase)
+// ربط جميع مسارات الـ API (CRUD, Purchase, Admin)
 app.use('/api/purchase', purchaseRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/activation-codes', activationCodeRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // معالجة المسارات غير الموجدودة (404 Handler)
 app.use((req, res) => {
@@ -61,7 +63,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// بذر بيانات أولية مجاناً في حال كانت البيانات فارغة (Seed Initial Data)
+// بذر بيانات أولية مجاناً في حال كانت البيانات فارغة
 async function seedInitialData() {
   try {
     const count = await Product.count();
@@ -90,7 +92,7 @@ async function seedInitialData() {
 // تشغيل الخادم والربط بقاعدة البيانات
 app.listen(PORT, async () => {
   console.log(`=================================`);
-  console.log(`🚀 Naja7t Server 2.0 is running on port ${PORT}`);
+  console.log(`🚀 Naja7t Server 2.1 is running on port ${PORT}`);
   console.log(`🗄️ Database: ${process.env.DB_DIALECT || 'sqlite'}`);
   console.log(`🌐 Base URL: http://localhost:${PORT}`);
   console.log(`=================================`);

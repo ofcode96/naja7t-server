@@ -1,9 +1,14 @@
 # GET https://naja7t-server.onrender.com/api/purchase/test
 
-POST https://naja7t-server.onrender.com/api/purchase/checkout
-Content-Type: application/json
+# POST https://naja7t-server.onrender.com/api/purchase/checkout
+# Content-Type: application/json
 
-{
-  "amount": 2900,
-  "courseTitle":  "باقة نجحت المتكاملة "
-}
+# {
+#   "courseId": "01m308pzk5cgr6wfm9synfbf7v",
+#   "fullName": "محمد الأمين",
+#   "email": "student@example.com",
+#   "paymentMethod": "EDAHABIA"
+# }
+
+GET https://naja7t-server.onrender.com/api/products
+Content-Type: application/json
