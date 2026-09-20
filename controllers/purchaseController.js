@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 const { createChargilyCheckout, verifyChargilyWebhookSignature } = require('../config/chargily');
 
-// ذاكرة مؤقتة للمحاكاة (Mock in-memory storage) في حال عدم وجود قاعدة بيانات حية
+// ذاكرة مؤقتة للمحاكاة (Mock in-memory storage)
 const mockOrders = new Map();
 
 /**
@@ -16,7 +16,7 @@ const processPurchase = async (req, res) => {
       email,
       courseId,
       courseTitle,
-      plan = 'الدورة الكاملة',
+      plan,
       paymentMethod = 'EDAHABIA', // EDAHABIA, CIB, CCP, BaridiMob
       amount,
       promoCode,
@@ -25,54 +25,15 @@ const processPurchase = async (req, res) => {
       failureUrl
     } = req.body;
 
-    // 1. التحقق من البيانات الأساسية
-    if (!fullName || !fullName.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'يرجى إدخال الاسم الكامل.'
-      });
-    }
+    // 1. الاعتماد المباشر للمبلغ المدخل دون تعديل تلقائي تلقائي
+    const finalAmount = Number(amount) > 0 ? Number(amount) : 3500;
 
-    if (!phone || !phone.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'يرجى إدخال رقم الهاتف.'
-      });
-    }
-
-    const cleanPhone = phone.replace(/[\s-]/g, '');
-    const phoneRegex = /^(05|06|07|021|023|024|025|026|027|029|031|032|033|034|035|036|037|038|041|043|045|046|048|049)[0-9]{8}$/;
-    if (!phoneRegex.test(cleanPhone)) {
-      return res.status(400).json({
-        success: false,
-        error: 'رقم الهاتف غير صحيح. يرجى إدخال رقم هاتف جزائري مكون من 10 أرقام.'
-      });
-    }
-
-    if (!courseId && !courseTitle) {
-      return res.status(400).json({
-        success: false,
-        error: 'يرجى تحديد الدورة أو المادة المراد شؤاؤها.'
-      });
-    }
-
-    // 2. حساب المبلغ النهائي والخصومات
-    let baseAmount = Number(amount) || 3500;
-    let discount = 0;
-    let appliedPromo = null;
-
-    if (promoCode) {
-      const codeUpper = promoCode.trim().toUpperCase();
-      if (codeUpper === 'NAJA7T10' || codeUpper === 'BAC2026') {
-        discount = Math.round(baseAmount * 0.10);
-        appliedPromo = { code: codeUpper, discountPercent: 10 };
-      } else if (codeUpper === 'EXCELLENCE20') {
-        discount = Math.round(baseAmount * 0.20);
-        appliedPromo = { code: codeUpper, discountPercent: 20 };
-      }
-    }
-
-    const finalAmount = Math.max(10, baseAmount - discount); // الحد الأدنى للمبلغ هو 10 دج
+    // 2. تكييف بيانات الزبون (جميع الحقول اختيارية وتتحمل المرور المباشر عبر الرابط)
+    const customerName = (fullName && fullName.trim()) ? fullName.trim() : 'طالب نجحت';
+    const cleanPhone = phone ? phone.replace(/[\s-]/g, '') : '';
+    const itemTitle = (courseTitle && courseTitle.trim())
+      ? courseTitle.trim()
+      : (courseId ? `دورة ${courseId}` : 'دورة منصة نجحت التعليمية');
 
     // 3. إنشاء رقم طلب فريد
     const randomNum = Math.floor(10000 + Math.random() * 90000);
@@ -85,7 +46,7 @@ const processPurchase = async (req, res) => {
 
     let checkoutUrl = null;
 
-    // 4. في حالة الدفع عبر البطاقة الذهبية أو CIB أو Chargily Pay
+    // 4. في حالة الدفع الإلكتروني (Chargily Pay: EDAHABIA / CIB)
     const normalizedMethod = paymentMethod.toUpperCase();
     if (['EDAHABIA', 'CIB', 'CHARGILY', 'CARD'].includes(normalizedMethod)) {
       const selectedMethod = normalizedMethod === 'EDAHABIA' ? 'edahabia' : (normalizedMethod === 'CIB' ? 'cib' : null);
@@ -95,10 +56,10 @@ const processPurchase = async (req, res) => {
       const webhookUrl = `${protocol}://${hostHeader}/api/purchase/webhook/chargily`;
 
       const chargilyResult = await createChargilyCheckout({
-        amount: finalAmount,
+        amount: finalAmount, // يتم تمرير 4000 دج كما أُدخلت تماماً
         currency: 'dzd',
-        title: courseTitle || 'دورة منصة نجحت التعليمية',
-        customerName: fullName.trim(),
+        title: itemTitle,
+        customerName,
         customerEmail: email ? email.trim() : '',
         orderId,
         successUrl,
@@ -125,26 +86,24 @@ const processPurchase = async (req, res) => {
       };
     }
 
-    // 5. بناء وتخزين بيانات الطلب
+    // 5. بناء كائن الطلب النهائي
     const orderData = {
       orderId,
       customer: {
-        fullName: fullName.trim(),
-        phone: cleanPhone,
+        fullName: customerName,
+        phone: cleanPhone || null,
         email: email ? email.trim() : null,
-        wilaya: wilaya || 'غير محدد'
+        wilaya: wilaya || null
       },
       item: {
         courseId: courseId || 'CR-101',
-        courseTitle: courseTitle || 'الدورة الشاملة منصة نجحت',
-        plan
+        courseTitle: itemTitle,
+        plan: plan || 'الدورة الكاملة'
       },
       pricing: {
-        originalAmount: baseAmount,
-        discount,
-        finalAmount,
+        amount: finalAmount,
         currency: 'DZD',
-        promoApplied: appliedPromo
+        promoCode: promoCode || null
       },
       payment: paymentInfo,
       checkoutUrl,
@@ -158,13 +117,13 @@ const processPurchase = async (req, res) => {
       success: true,
       message: checkoutUrl
         ? 'تم إنشاء طلب الشراء بنجاح، يرجى التوجه لرابط الدفع للإتمام.'
-        : 'تم تسجيل طلب الشراء بنجاح! يرجى إتمام عملية الدفع وفق التعليمات.',
+        : 'تم تسجيل طلب الشراء بنجاح!',
       checkoutUrl,
       data: orderData
     });
 
   } catch (error) {
-    console.error('خطأ في معالجة طلب الشراء عبر Chargily:', error);
+    console.error('خطأ في معالجة طلب الشراء:', error);
     return res.status(500).json({
       success: false,
       error: 'حدث خطأ أثناء الاتصال ببوابة الدفع. يرجى المحاولة لاحقاً.'
@@ -179,9 +138,8 @@ const processPurchase = async (req, res) => {
 const handleChargilyWebhook = async (req, res) => {
   try {
     const signature = req.headers['chargily-signature'];
-    const rawBody = req.body; // Buffer or raw body
+    const rawBody = req.body;
 
-    // 1. التحقق التوقيع الرقمي
     const isValid = verifyChargilyWebhookSignature(rawBody, signature);
     if (!isValid) {
       console.warn('⛔ توقيع Webhook غير صالح من Chargily Pay.');
@@ -200,7 +158,6 @@ const handleChargilyWebhook = async (req, res) => {
 
     console.log(`📩 استقبال إشعار Webhook من Chargily Pay: [${event}]`);
 
-    // 2. تحديث حالة الطلب بناءً على نوع الحدث
     if (event === 'checkout.paid') {
       const orderId = checkoutData.metadata ? checkoutData.metadata.order_id : null;
       if (orderId && mockOrders.has(orderId)) {
