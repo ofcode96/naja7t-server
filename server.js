@@ -10,6 +10,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware الأساسية
 app.use(cors());
+
+// التقاط البايتات الخام (Raw Body Buffer) لمسار Webhook لـ Chargily Pay للتحقق من التوقيع الرقمي
+app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json' }));
+
+// معالجة JSON والـ Form Data للمسارات الأخرى
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -19,12 +24,12 @@ app.get('/', (req, res) => {
     success: true,
     name: process.env.APP_NAME || 'Naja7t API Server',
     version: '1.0.0',
-    message: 'مرحباً بك في API منصة نجحت التعليمية (Backend Server)',
+    message: 'مرحباً بك في API منصة نجحت التعليمية - متوافق مع بوابة Chargily Pay',
     status: 'Running'
   });
 });
 
-// ربط مسارات صفحة الشراء
+// ربط مسارات صفحة الشراء وبوابة الدفع
 app.use('/api/purchase', purchaseRoutes);
 
 // معالجة المسارات غير الموجدودة (404 Handler)
@@ -48,10 +53,10 @@ app.use((err, req, res, next) => {
 app.listen(PORT, async () => {
   console.log(`=================================`);
   console.log(`🚀 Naja7t Server is running on port ${PORT}`);
+  console.log(`💳 Chargily Pay Gateway Endpoint Ready!`);
   console.log(`🌐 Base URL: http://localhost:${PORT}`);
   console.log(`=================================`);
   
-  // فحص الاتصال بقاعدة البيانات بشكل غير معطل
   await checkConnection();
 });
 
