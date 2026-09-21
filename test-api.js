@@ -24,32 +24,21 @@ function makeRequest(options, postData, headers = {}) {
 }
 
 async function runTests() {
-  console.log(`\n--- 1. Testing GET /api/products on port ${PORT} ---`);
-  const resProducts = await makeRequest({ host: 'localhost', port: PORT, path: '/api/products', method: 'GET' });
-  console.log('Status:', resProducts.statusCode, 'Count:', resProducts.body.count);
-
-  console.log('\n--- 2. Testing Activation Code Uniqueness Enforcement ---');
-  const payloadCode = JSON.stringify({ code: `NJ-CODE-${Math.floor(Math.random()*1000)}`, product_id: 'BAC-MATH-2026' });
-  const resCode1 = await makeRequest({
-    host: 'localhost', port: PORT, path: '/api/activation-codes', method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payloadCode) }
-  }, payloadCode);
-  console.log('Creation Status:', resCode1.statusCode);
-
-  console.log('\n--- 3. Testing Purchase with Encrypted Success URL ---');
-  const purchasePayload = JSON.stringify({
-    fullName: 'طالب اختباري',
+  console.log(`--- Testing Checkout Endpoint on Port ${PORT} ---`);
+  const payload = JSON.stringify({
     courseId: 'BAC-MATH-2026',
-    paymentMethod: 'FREE'
+    amount: 2500,
+    fullName: 'طالب بتسعيير ديناميكي',
+    paymentMethod: 'EDAHABIA'
   });
 
-  const resPurchase = await makeRequest({
+  const res = await makeRequest({
     host: 'localhost', port: PORT, path: '/api/purchase/checkout', method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(purchasePayload) }
-  }, purchasePayload);
-  console.log('Purchase Status:', resPurchase.statusCode);
-  console.log('Serial Number:', resPurchase.body.data.serial_number);
-  console.log('Redirect URL:', resPurchase.body.redirectUrl);
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+  }, payload);
+
+  console.log('Status:', res.statusCode);
+  console.log('Checkout URL:', res.body.checkoutUrl);
 }
 
 runTests().catch(console.error);

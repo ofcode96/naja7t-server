@@ -1,6 +1,5 @@
 const { Customer, Product, ActivationCode } = require('../models');
 const { createChargilyCheckout, verifyChargilyWebhookSignature } = require('../config/chargily');
-const { getTrustedCourseDetails } = require('../config/coursesCatalog');
 const { generateSuccessUrl } = require('../utils/encryption');
 
 // GET /api/customers - جلب كافة العملاء
@@ -84,7 +83,7 @@ const deleteCustomerRecord = async (req, res) => {
 };
 
 /**
- * معالجة الشراء وإنشاء السجل في قاعدة البيانات
+ * معالجة الشراء المباشر بدون قيود على السعر الممرر
  * POST /api/purchase/checkout
  */
 const processPurchase = async (req, res) => {
@@ -95,32 +94,30 @@ const processPurchase = async (req, res) => {
       email,
       courseId,
       courseTitle,
+      amount, // الاعتماد المباشر للمبلغ الممرر من العميل
       paymentMethod = 'EDAHABIA', // EDAHABIA, CASH, FLEXY, RECEIPT, FREE, SADAQA, CONTEST, PENDING
       successUrl,
       failureUrl
     } = req.body;
 
-    // 1. جلب السعر المعتمد والآمن من قاعدة البيانات / الكتالوج
-    let trustedProduct = await Product.findOne({ where: { code: courseId } });
-    let finalAmount = 3500;
-    let itemTitle = courseTitle || 'دورة منصة نجحت';
+    // 1. استخدام المبلغ الممرر مباشرة، وفي حال عدم التمرير نلجأ للمنتج في قاعدة البيانات أو 3500 افتراضياً
+    let finalAmount = Number(amount) > 0 ? Number(amount) : 3500;
+    let itemTitle = (courseTitle && courseTitle.trim()) ? courseTitle.trim() : (courseId || 'دورة منصة نجحت');
 
-    if (trustedProduct) {
-      finalAmount = trustedProduct.price;
-      itemTitle = trustedProduct.name;
-    } else {
-      const fallback = getTrustedCourseDetails(courseId);
-      finalAmount = fallback.price;
-      itemTitle = fallback.title;
+    if (!amount || Number(amount) <= 0) {
+      const dbProduct = await Product.findOne({ where: { code: courseId } });
+      if (dbProduct) {
+        finalAmount = dbProduct.price;
+        if (!courseTitle) itemTitle = dbProduct.name;
+      }
     }
 
     const customerName = (fullName && fullName.trim()) ? fullName.trim() : 'طالب نجحت';
     const serial_number = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
     const normalizedMethod = paymentMethod.toUpperCase();
 
-    // 2. معالجة الحالات المجانية فوراً (FREE, SADAQA, CONTEST)
+    // 2. معالجة الحالات المجانية (FREE, SADAQA, CONTEST)
     if (['FREE', 'SADAQA', 'CONTEST'].includes(normalizedMethod)) {
-      // البحث عن كود تفعيل شاغر أو إنشاء كود جديد
       let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
       let codeStr = actCode ? actCode.code : `FREE-${Math.floor(10000 + Math.random() * 90000)}`;
 
@@ -142,7 +139,6 @@ const processPurchase = async (req, res) => {
         activation_code: codeStr
       });
 
-      // إنشاء رابط النجاح متضمناً البارامتر المشفر AES-256
       const encryptedSuccessUrl = generateSuccessUrl(successUrl, {
         orderId: serial_number,
         customerName,
@@ -159,7 +155,7 @@ const processPurchase = async (req, res) => {
       });
     }
 
-    // 3. الدفع عبر البطاقة الذهبية / CIB (Chargily Pay)
+    // 3. الدفع الإلكتروني عبر البطاقة الذهبية / CIB (Chargily Pay)
     let checkoutUrl = null;
     let chargilyCheckoutId = null;
 
@@ -171,7 +167,7 @@ const processPurchase = async (req, res) => {
       const webhookUrl = `${protocol}://${hostHeader}/api/purchase/webhook/chargily`;
 
       const chargilyResult = await createChargilyCheckout({
-        amount: finalAmount,
+        amount: finalAmount, // المبلغ الممرر مباشرة
         currency: 'dzd',
         title: itemTitle,
         courseId: courseId || 'CR-101',
@@ -188,7 +184,7 @@ const processPurchase = async (req, res) => {
       chargilyCheckoutId = chargilyResult.checkoutId;
     }
 
-    // 4. حفظ العميل والطلب في قاعدة البيانات
+    // 4. حفظ الطلب في قاعدة البيانات
     const customer = await Customer.create({
       serial_number,
       customer_name: customerName,
@@ -245,7 +241,6 @@ const handleChargilyWebhook = async (req, res) => {
       if (serial_number) {
         const customer = await Customer.findOne({ where: { serial_number } });
         if (customer) {
-          // تعيين كود تفعيل غير مستعمل
           let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
           let codeStr = actCode ? actCode.code : `ACT-${Math.floor(10000 + Math.random() * 90000)}`;
 
