@@ -1,20 +1,24 @@
 # GET https://naja7t-server.onrender.com/api/purchase/test
 
-POST https://naja7t-server.onrender.com/api/purchase/checkout
-Content-Type: application/json
+# POST https://naja7t-server.onrender.com/api/purchase/checkout
+# Content-Type: application/json
 
-{
-  "courseId": "5",
-  "fullName": "محمد الأمين",
-  "email": "student@example.com",
-  "paymentMethod": "EDAHABIA"
-}
+# {
+#   "courseId": "6",
+#   "fullName": "محمد oussama",
+#   "email": "hgero@example.com",
+#   "paymentMethod": "EDAHABIA"
+# }
+
+GET https://naja7t-server.onrender.com/api/customers
+Content-Type: application/json
 
 # GET https://naja7t-server.onrender.com/api/products
 # Content-Type: application/json
 
 # GET https://naja7t-server.onrender.com/api/students
 # Content-Type: application/json
+
 
 # POST https://naja7t-server.onrender.com/api/products
 # Content-Type: application/json

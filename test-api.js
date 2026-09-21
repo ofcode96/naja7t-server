@@ -24,21 +24,18 @@ function makeRequest(options, postData, headers = {}) {
 }
 
 async function runTests() {
-  console.log(`--- Testing Checkout Endpoint on Port ${PORT} ---`);
-  const payload = JSON.stringify({
-    courseId: '5',
-    fullName: 'محمد الأمين',
-    email: 'student@example.com',
-    paymentMethod: 'EDAHABIA'
+  console.log(`--- Testing Simplified Purchase Request ({ "courseId": 1 }) ---`);
+  const checkoutPayload = JSON.stringify({
+    courseId: 1
   });
 
-  const res = await makeRequest({
+  const resCheckout = await makeRequest({
     host: 'localhost', port: PORT, path: '/api/purchase/checkout', method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-  }, payload);
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(checkoutPayload) }
+  }, checkoutPayload);
 
-  console.log('Status:', res.statusCode);
-  console.log('Product Name:', res.body.data ? res.body.data.product_name : 'N/A');
+  console.log('Status:', resCheckout.statusCode);
+  console.log('Checkout URL:', resCheckout.body.checkoutUrl);
 }
 
 runTests().catch(console.error);

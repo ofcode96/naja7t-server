@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-// 1. جدول المنتجات (Products)
+// 1. جدول المنتجات (Products) مع حفظ معرفات Chargily للربط التام وعدم التكرار
 const Product = sequelize.define('Product', {
   id: {
     type: DataTypes.INTEGER,
@@ -24,6 +24,14 @@ const Product = sequelize.define('Product', {
   price: {
     type: DataTypes.FLOAT,
     allowNull: false
+  },
+  chargily_product_id: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  chargily_price_id: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
   is_active: {
     type: DataTypes.BOOLEAN,
@@ -68,12 +76,12 @@ const Customer = sequelize.define('Customer', {
     allowNull: true
   },
   payment_method: {
-    type: DataTypes.STRING, // EDAHABIA, CASH, FLEXY, RECEIPT, FREE, SADAQA, CONTEST, PENDING
+    type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'PENDING'
+    defaultValue: 'EDAHABIA'
   },
   payment_status: {
-    type: DataTypes.STRING, // pending, paid, cancelled, failed
+    type: DataTypes.STRING,
     allowNull: false,
     defaultValue: 'pending'
   },
@@ -103,7 +111,7 @@ const ActivationCode = sequelize.define('ActivationCode', {
   },
   code: {
     type: DataTypes.STRING,
-    unique: true, // يمنع التكرار مطلقاً
+    unique: true,
     allowNull: false
   },
   status: {
@@ -157,7 +165,7 @@ const Student = sequelize.define('Student', {
     allowNull: true
   },
   answers: {
-    type: DataTypes.JSON, // مدخل كبير JSON لإجابات التلميذ
+    type: DataTypes.JSON,
     allowNull: true
   },
   score: {

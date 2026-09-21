@@ -6,10 +6,6 @@ const isConfigured = secretKey && !secretKey.includes('your_chargily_secret_key'
 
 let chargilyClient = null;
 
-// ذاكرة مؤقتة لتخزين المنتجات والأسعار وإعادة استخدامها لمنع تكرارها في Chargily Dashboard
-const productCache = new Map();
-const priceCache = new Map();
-
 if (isConfigured) {
   try {
     chargilyClient = new ChargilyClient({
@@ -25,58 +21,55 @@ if (isConfigured) {
 }
 
 /**
- * دالة الحصول على منتج مخزن أو إنشائه مرة واحدة فقط لدى Chargily
+ * جلب أو إنشاء السعر المربوط بالمنتج لدى Chargily Pay وحفظه في قاعدة البيانات لتفادي التكرار نهائياً
+ * @param {object} dbProduct نموذج المنتج من قاعدة البيانات
  */
-async function getOrCreateChargilyProduct(courseId, title) {
-  if (!chargilyClient) return null;
+async function getOrCreateChargilyPriceForProduct(dbProduct) {
+  if (!chargilyClient || !dbProduct) return null;
 
-  const cacheKey = courseId || title;
-  if (productCache.has(cacheKey)) {
-    return productCache.get(cacheKey);
+  // إذا كان السعر معرفاً مسبقاً لدى Chargily ومخزناً في القاعدة نعيده فوراً
+  if (dbProduct.chargily_price_id) {
+    return dbProduct.chargily_price_id;
   }
 
-  const product = await chargilyClient.createProduct({
-    name: title,
-    description: `دورة منصة نجحت التعليمية - ${courseId || ''}`,
-  });
+  try {
+    // 1. إنشاء المنتج لدى Chargily في حال لم ينشأ بعد
+    let productId = dbProduct.chargily_product_id;
+    if (!productId) {
+      const chargilyProd = await chargilyClient.createProduct({
+        name: dbProduct.name,
+        description: dbProduct.description || `دورة منصة نجحت - ${dbProduct.code}`,
+      });
+      productId = chargilyProd.id;
+      dbProduct.chargily_product_id = productId;
+    }
 
-  productCache.set(cacheKey, product);
-  return product;
+    // 2. إنشاء السعر لدى Chargily
+    const chargilyPrice = await chargilyClient.createPrice({
+      amount: Math.round(dbProduct.price),
+      currency: 'dzd',
+      product_id: productId,
+    });
+
+    dbProduct.chargily_price_id = chargilyPrice.id;
+    await dbProduct.save();
+
+    console.log(`✅ تم ربط المنتج (${dbProduct.name}) لدى Chargily Pay بالسعر (${chargilyPrice.id}) بنجاح!`);
+    return chargilyPrice.id;
+  } catch (err) {
+    console.error('❌ خطأ في مزامنة منتج Chargily:', err.response ? err.response.data : err.message);
+    return null;
+  }
 }
 
 /**
- * دالة الحصول على سعر مخزن أو إنشائه مرة واحدة فقط لدى Chargily
- */
-async function getOrCreateChargilyPrice(courseId, title, amount, currency = 'dzd') {
-  if (!chargilyClient) return null;
-
-  const product = await getOrCreateChargilyProduct(courseId, title);
-  const cacheKey = `${courseId || title}_${amount}_${currency.toLowerCase()}`;
-
-  if (priceCache.has(cacheKey)) {
-    return priceCache.get(cacheKey);
-  }
-
-  const price = await chargilyClient.createPrice({
-    amount: Math.round(amount),
-    currency: currency.toLowerCase(),
-    product_id: product.id,
-  });
-
-  priceCache.set(cacheKey, price);
-  return price;
-}
-
-/**
- * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع إعادة استخدام المنتجات والأسعار
+ * دالة إنشاء جلسة دفع لدى Chargily Pay V2 باستخدام المعرف المخزن مسبقاً بدون أي تكرار
  */
 async function createChargilyCheckout({
   amount,
   currency = 'dzd',
   title = 'دورة منصة نجحت التعليمية',
-  courseId,
-  customerName,
-  customerEmail,
+  priceId,
   orderId,
   successUrl,
   failureUrl,
@@ -88,24 +81,31 @@ async function createChargilyCheckout({
 
   if (chargilyClient) {
     try {
-      // 1. إعادة استخدام أو إنشاء السعر المربوط بالمنتج مرة واحدة فقط
-      const price = await getOrCreateChargilyPrice(courseId, title, amount, currency);
+      let finalPriceId = priceId;
 
-      // 2. إنشاء جلسة الدفع الخفيفة (Checkout)
+      // إذا لم يتوفر priceId جاهز، نولد السعر على المنتج مباشرة
+      if (!finalPriceId) {
+        const prod = await chargilyClient.createProduct({ name: title });
+        const price = await chargilyClient.createPrice({
+          amount: Math.round(amount || 3500),
+          currency: currency.toLowerCase(),
+          product_id: prod.id
+        });
+        finalPriceId = price.id;
+      }
+
       const checkoutPayload = {
         items: [
           {
-            price: price.id,
+            price: finalPriceId,
             quantity: 1,
           },
         ],
         success_url,
         failure_url,
         metadata: {
-          order_id: orderId,
-          customer_name: customerName || '',
-          customer_email: customerEmail || '',
-        },
+          order_id: orderId
+        }
       };
 
       if (paymentMethod && (paymentMethod.toLowerCase() === 'edahabia' || paymentMethod.toLowerCase() === 'cib')) {
@@ -131,7 +131,7 @@ async function createChargilyCheckout({
     }
   }
 
-  // وضع المحاكاة التلقائي عند الاختبار
+  // وضع المحاكاة عند الاختبار
   return {
     success: true,
     checkoutUrl: `https://pay.chargily.com/test/checkout/simulated-${orderId}`,
@@ -157,6 +157,7 @@ function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
 }
 
 module.exports = {
+  getOrCreateChargilyPriceForProduct,
   createChargilyCheckout,
   verifyChargilyWebhookSignature,
   isChargilyConfigured: () => !!chargilyClient

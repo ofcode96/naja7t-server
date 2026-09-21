@@ -5,7 +5,6 @@ const dialect = process.env.DB_DIALECT || 'sqlite';
 let sequelize;
 
 if (dialect === 'sqlite') {
-  // تحميل مكتبة sqlite3 ديناميكياً فقط عند استخدام وضع SQLite محلياً
   try {
     const sqlite3 = require('sqlite3');
     sequelize = new Sequelize({
@@ -20,7 +19,6 @@ if (dialect === 'sqlite') {
     throw err;
   }
 } else {
-  // في بيئة الإنتاج على Render (MySQL) يتم استدعاء mysql2 صراحة لمنع البحث عن GLIBC الخاص بـ sqlite3
   const mysql2 = require('mysql2');
   sequelize = new Sequelize(
     process.env.DB_NAME || 'naja7t_db',
@@ -48,7 +46,7 @@ async function initDatabase() {
   try {
     await sequelize.authenticate();
     console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${dialect.toUpperCase()})`);
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('🔄 تم فحص ومزامنة الجداول بنجاح!');
     return true;
   } catch (error) {
