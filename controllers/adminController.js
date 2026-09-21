@@ -2,37 +2,20 @@ const { Product, Customer, ActivationCode, Student } = require('../models');
 const { sequelize } = require('../config/db');
 
 /**
- * تصفير وتفريغ قاعدة البيانات أو جداول محددة
+ * تصفير وتفريغ قاعدة البيانات أو جداول محددة بالكامل بدون إضافة كورسات افتراضية
  * POST /api/admin/reset
  */
 const resetDatabase = async (req, res) => {
   try {
-    const { target = 'all', seed = true } = req.body;
+    const { target = 'all' } = req.body;
     let message = '';
 
     const targetLower = (target || 'all').toLowerCase();
 
     if (targetLower === 'all') {
-      // إعادة إنشاء وبناء جميع الجداول نظيفة لضمان مطابقة المخطط (Schema Sync)
+      // إعادة إنشاء وبناء جميع الجداول نظيفة بالكامل
       await sequelize.sync({ force: true });
-      message = 'تم تصفير وتفريغ جميع جداول قاعدة البيانات وإعادة بنائها نظيفة بالكامل!';
-
-      if (seed) {
-        await Product.bulkCreate([
-          { code: 'BAC-MATH-2026', name: 'التحضير للبكالوريا - مادة الرياضيات', description: 'دورة الرياضيات الشاملة', price: 4000 },
-          { code: 'BAC-PHYSICS-2026', name: 'التحضير للبكالوريا - مادة الفيزياء', description: 'دورة الفيزياء الشاملة', price: 4500 },
-          { code: 'BAC-SCIENCE-2026', name: 'التحضير للبكالوريا - مادة العلوم', description: 'دورة العلوم الشاملة', price: 4000 },
-          { code: 'FULL-PACK-2026', name: 'الباك الشامل - جميع المواد العلمية', description: 'عرض الشامل لكل المواد', price: 10000 }
-        ]);
-
-        await ActivationCode.bulkCreate([
-          { code: 'NJ-ACT-1001-MATH', status: 'unused', product_id: 'BAC-MATH-2026' },
-          { code: 'NJ-ACT-1002-PHYS', status: 'unused', product_id: 'BAC-PHYSICS-2026' },
-          { code: 'NJ-ACT-1003-SCIE', status: 'unused', product_id: 'BAC-SCIENCE-2026' },
-          { code: 'NJ-ACT-1004-PACK', status: 'unused', product_id: 'FULL-PACK-2026' }
-        ]);
-        message += ' وتم بذر البيانات الأولية للدورات والأكواد مجدداً.';
-      }
+      message = 'تم تصفير وتفريغ جميع جداول قاعدة البيانات بالكامل وهي الآن فارغة ونظيفة وجاهزة لإدخال بياناتك!';
     } else {
       switch (targetLower) {
         case 'customers':

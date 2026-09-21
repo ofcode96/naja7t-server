@@ -3,7 +3,6 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { initDatabase } = require('./config/db');
-const { Product, ActivationCode } = require('./models');
 
 // استيراد المسارات
 const purchaseRoutes = require('./routes/purchaseRoutes');
@@ -22,7 +21,7 @@ app.use(cors());
 // التقاط البايتات الخام لمسار Webhook لـ Chargily Pay
 app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json' }));
 
-// معالجة JSON الفائقة الأمان (تخطي فحص الجيسون لطلبات GET وإهمال أخطاء البارس للطلبات البسيطة)
+// معالجة JSON الفائقة الأمان
 app.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'DELETE') {
     req.body = req.body || {};
@@ -31,7 +30,6 @@ app.use((req, res, next) => {
 
   express.json({ limit: '10mb' })(req, res, (err) => {
     if (err) {
-      // إذا فشل تحليل الـ JSON نعين كائناً فارغاً ونستمر دون إيقاف السيرفر بـ 400
       req.body = {};
     }
     next();
@@ -46,7 +44,7 @@ app.get('/', (req, res) => {
     success: true,
     name: process.env.APP_NAME || 'Naja7t API Server',
     version: '2.2.0',
-    message: 'مرحباً بك في API منصة نجحت التعليمية - متكامل وآمن 100%',
+    message: 'مرحباً بك في API منصة نجحت التعليمية - خالي من الكورسات الافتراضية وجاهز لإدخال منتجاتك المخصصة',
     database: process.env.DB_DIALECT || 'sqlite',
     status: 'Running'
   });
@@ -77,33 +75,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// بذر بيانات أولية مجاناً في حال كانت البيانات فارغة
-async function seedInitialData() {
-  try {
-    const count = await Product.count();
-    if (count === 0) {
-      console.log('🌱 بذر البيانات الأولية للمنتجات وأكواد التفعيل...');
-      await Product.bulkCreate([
-        { code: 'BAC-MATH-2026', name: 'التحضير للبكالوريا - مادة الرياضيات', description: 'دورة الرياضيات الشاملة', price: 4000 },
-        { code: 'BAC-PHYSICS-2026', name: 'التحضير للبكالوريا - مادة الفيزياء', description: 'دورة الفيزياء الشاملة', price: 4500 },
-        { code: 'BAC-SCIENCE-2026', name: 'التحضير للبكالوريا - مادة العلوم', description: 'دورة العلوم الشاملة', price: 4000 },
-        { code: 'FULL-PACK-2026', name: 'الباك الشامل - جميع المواد العلمية', description: 'عرض الشامل لكل المواد', price: 10000 }
-      ]);
-
-      await ActivationCode.bulkCreate([
-        { code: 'NJ-ACT-1001-MATH', status: 'unused', product_id: 'BAC-MATH-2026' },
-        { code: 'NJ-ACT-1002-PHYS', status: 'unused', product_id: 'BAC-PHYSICS-2026' },
-        { code: 'NJ-ACT-1003-SCIE', status: 'unused', product_id: 'BAC-SCIENCE-2026' },
-        { code: 'NJ-ACT-1004-PACK', status: 'unused', product_id: 'FULL-PACK-2026' }
-      ]);
-      console.log('✅ تم بذر البيانات بنجاح!');
-    }
-  } catch (err) {
-    console.warn('⚠️ Seed Warning:', err.message);
-  }
-}
-
-// تشغيل الخادم والربط بقاعدة البيانات
+// تشغيل الخادم والربط بقاعدة البيانات بدون إدراج أي كورس افتراضي
 app.listen(PORT, async () => {
   console.log(`=================================`);
   console.log(`🚀 Naja7t Server 2.2 is running on port ${PORT}`);
@@ -111,10 +83,7 @@ app.listen(PORT, async () => {
   console.log(`🌐 Base URL: http://localhost:${PORT}`);
   console.log(`=================================`);
   
-  const connected = await initDatabase();
-  if (connected) {
-    await seedInitialData();
-  }
+  await initDatabase();
 });
 
 module.exports = app;
