@@ -1,4 +1,5 @@
 const { Product, Customer, ActivationCode, Student } = require('../models');
+const { sequelize } = require('../config/db');
 
 /**
  * تصفير وتفريغ قاعدة البيانات أو جداول محددة
@@ -7,62 +8,65 @@ const { Product, Customer, ActivationCode, Student } = require('../models');
 const resetDatabase = async (req, res) => {
   try {
     const { target = 'all', seed = true } = req.body;
-
     let message = '';
 
-    switch (target.toLowerCase()) {
-      case 'customers':
-        await Customer.destroy({ where: {} });
-        message = 'تم تصفير وتفريغ جدول العملاء والعمليات بنجاح!';
-        break;
+    const targetLower = (target || 'all').toLowerCase();
 
-      case 'activation_codes':
-      case 'activation-codes':
-        await ActivationCode.destroy({ where: {} });
-        message = 'تم تصفير وتفريغ جدول أكواد التفعيل بنجاح!';
-        break;
+    if (targetLower === 'all') {
+      // إعادة إنشاء وبناء جميع الجداول نظيفة لضمان مطابقة المخطط (Schema Sync)
+      await sequelize.sync({ force: true });
+      message = 'تم تصفير وتفريغ جميع جداول قاعدة البيانات وإعادة بنائها نظيفة بالكامل!';
 
-      case 'students':
-        await Student.destroy({ where: {} });
-        message = 'تم تصفير وتفريغ جدول التلاميذ وإجابات الكويزات بنجاح!';
-        break;
+      if (seed) {
+        await Product.bulkCreate([
+          { code: 'BAC-MATH-2026', name: 'التحضير للبكالوريا - مادة الرياضيات', description: 'دورة الرياضيات الشاملة', price: 4000 },
+          { code: 'BAC-PHYSICS-2026', name: 'التحضير للبكالوريا - مادة الفيزياء', description: 'دورة الفيزياء الشاملة', price: 4500 },
+          { code: 'BAC-SCIENCE-2026', name: 'التحضير للبكالوريا - مادة العلوم', description: 'دورة العلوم الشاملة', price: 4000 },
+          { code: 'FULL-PACK-2026', name: 'الباك الشامل - جميع المواد العلمية', description: 'عرض الشامل لكل المواد', price: 10000 }
+        ]);
 
-      case 'products':
-        await Product.destroy({ where: {} });
-        message = 'تم تصفير وتفريغ جدول المنتجات بنجاح!';
-        break;
+        await ActivationCode.bulkCreate([
+          { code: 'NJ-ACT-1001-MATH', status: 'unused', product_id: 'BAC-MATH-2026' },
+          { code: 'NJ-ACT-1002-PHYS', status: 'unused', product_id: 'BAC-PHYSICS-2026' },
+          { code: 'NJ-ACT-1003-SCIE', status: 'unused', product_id: 'BAC-SCIENCE-2026' },
+          { code: 'NJ-ACT-1004-PACK', status: 'unused', product_id: 'FULL-PACK-2026' }
+        ]);
+        message += ' وتم بذر البيانات الأولية للدورات والأكواد مجدداً.';
+      }
+    } else {
+      switch (targetLower) {
+        case 'customers':
+          await Customer.destroy({ where: {} });
+          message = 'تم تصفير وتفريغ جدول العملاء والعمليات بنجاح!';
+          break;
 
-      case 'all':
-      default:
-        await Customer.destroy({ where: {} });
-        await ActivationCode.destroy({ where: {} });
-        await Student.destroy({ where: {} });
-        await Product.destroy({ where: {} });
-        message = 'تم تصفير وتفريغ جميع جداول قاعدة البيانات بالكامل!';
+        case 'activation_codes':
+        case 'activation-codes':
+          await ActivationCode.destroy({ where: {} });
+          message = 'تم تصفير وتفريغ جدول أكواد التفعيل بنجاح!';
+          break;
 
-        if (seed) {
-          await Product.bulkCreate([
-            { code: 'BAC-MATH-2026', name: 'التحضير للبكالوريا - مادة الرياضيات', description: 'دورة الرياضيات الشاملة', price: 4000 },
-            { code: 'BAC-PHYSICS-2026', name: 'التحضير للبكالوريا - مادة الفيزياء', description: 'دورة الفيزياء الشاملة', price: 4500 },
-            { code: 'BAC-SCIENCE-2026', name: 'التحضير للبكالوريا - مادة العلوم', description: 'دورة العلوم الشاملة', price: 4000 },
-            { code: 'FULL-PACK-2026', name: 'الباك الشامل - جميع المواد العلمية', description: 'عرض الشامل لكل المواد', price: 10000 }
-          ]);
+        case 'students':
+          await Student.destroy({ where: {} });
+          message = 'تم تصفير وتفريغ جدول التلاميذ وإجابات الكويزات بنجاح!';
+          break;
 
-          await ActivationCode.bulkCreate([
-            { code: 'NJ-ACT-1001-MATH', status: 'unused', product_id: 'BAC-MATH-2026' },
-            { code: 'NJ-ACT-1002-PHYS', status: 'unused', product_id: 'BAC-PHYSICS-2026' },
-            { code: 'NJ-ACT-1003-SCIE', status: 'unused', product_id: 'BAC-SCIENCE-2026' },
-            { code: 'NJ-ACT-1004-PACK', status: 'unused', product_id: 'FULL-PACK-2026' }
-          ]);
-          message += ' وتم بذر البيانات الأولية للدورات والأكواد مجدداً.';
-        }
-        break;
+        case 'products':
+          await Product.destroy({ where: {} });
+          message = 'تم تصفير وتفريغ جدول المنتجات بنجاح!';
+          break;
+
+        default:
+          await Customer.destroy({ where: {} });
+          message = 'تم تصفير وتفريغ الجدول المطلوب بنجاح!';
+          break;
+      }
     }
 
     return res.status(200).json({
       success: true,
       message,
-      target
+      target: targetLower
     });
 
   } catch (error) {

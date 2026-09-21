@@ -26,6 +26,17 @@ app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json'
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// معالجة خطأ صيغة الـ JSON (تنبيه عند نسخ الهيدرات بالخطأ داخل الـ Body)
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && err.status === 400))) {
+    return res.status(400).json({
+      success: false,
+      error: 'صيغة JSON غير صحيحة (Invalid JSON). يرجى وضع كائن الـ JSON فقط داخل مربع الـ Body، وعدم كتابة كلمات الهيدر مثل POST أو Content-Type داخل مربع النص.'
+    });
+  }
+  next(err);
+});
+
 // الصفحة الرئيسية وفحص سلامة السيرفر Health Check
 app.get('/', (req, res) => {
   res.json({
