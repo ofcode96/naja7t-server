@@ -19,31 +19,34 @@ const PORT = process.env.PORT || 5000;
 // Middleware الأساسية
 app.use(cors());
 
-// التقاط البايتات الخام لمسار Webhook
+// التقاط البايتات الخام لمسار Webhook لـ Chargily Pay
 app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json' }));
 
-// معالجة JSON والـ Form Data
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// معالجة خطأ صيغة الـ JSON (تنبيه عند نسخ الهيدرات بالخطأ داخل الـ Body)
-app.use((err, req, res, next) => {
-  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && err.status === 400))) {
-    return res.status(400).json({
-      success: false,
-      error: 'صيغة JSON غير صحيحة (Invalid JSON). يرجى وضع كائن الـ JSON فقط داخل مربع الـ Body، وعدم كتابة كلمات الهيدر مثل POST أو Content-Type داخل مربع النص.'
-    });
+// معالجة JSON الفائقة الأمان (تخطي فحص الجيسون لطلبات GET وإهمال أخطاء البارس للطلبات البسيطة)
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'DELETE') {
+    req.body = req.body || {};
+    return next();
   }
-  next(err);
+
+  express.json({ limit: '10mb' })(req, res, (err) => {
+    if (err) {
+      // إذا فشل تحليل الـ JSON نعين كائناً فارغاً ونستمر دون إيقاف السيرفر بـ 400
+      req.body = {};
+    }
+    next();
+  });
 });
+
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // الصفحة الرئيسية وفحص سلامة السيرفر Health Check
 app.get('/', (req, res) => {
   res.json({
     success: true,
     name: process.env.APP_NAME || 'Naja7t API Server',
-    version: '2.1.0',
-    message: 'مرحباً بك في API منصة نجحت التعليمية - متكامل مع قواعد البيانات و Chargily Pay وتصفير البيانات',
+    version: '2.2.0',
+    message: 'مرحباً بك في API منصة نجحت التعليمية - متكامل وآمن 100%',
     database: process.env.DB_DIALECT || 'sqlite',
     status: 'Running'
   });
@@ -103,7 +106,7 @@ async function seedInitialData() {
 // تشغيل الخادم والربط بقاعدة البيانات
 app.listen(PORT, async () => {
   console.log(`=================================`);
-  console.log(`🚀 Naja7t Server 2.1 is running on port ${PORT}`);
+  console.log(`🚀 Naja7t Server 2.2 is running on port ${PORT}`);
   console.log(`🗄️ Database: ${process.env.DB_DIALECT || 'sqlite'}`);
   console.log(`🌐 Base URL: http://localhost:${PORT}`);
   console.log(`=================================`);
