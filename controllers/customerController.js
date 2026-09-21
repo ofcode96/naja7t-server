@@ -83,7 +83,7 @@ const deleteCustomerRecord = async (req, res) => {
 };
 
 /**
- * معالجة الشراء المباشر بدون قيود على السعر الممرر
+ * معالجة الشراء والبحث المرن عن المنتج بالـ ID أو بالـ Code
  * POST /api/purchase/checkout
  */
 const processPurchase = async (req, res) => {
@@ -94,23 +94,40 @@ const processPurchase = async (req, res) => {
       email,
       courseId,
       courseTitle,
-      amount, // الاعتماد المباشر للمبلغ الممرر من العميل
+      amount,
       paymentMethod = 'EDAHABIA', // EDAHABIA, CASH, FLEXY, RECEIPT, FREE, SADAQA, CONTEST, PENDING
       successUrl,
       failureUrl
     } = req.body;
 
-    // 1. استخدام المبلغ الممرر مباشرة، وفي حال عدم التمرير نلجأ للمنتج في قاعدة البيانات أو 3500 افتراضياً
-    let finalAmount = Number(amount) > 0 ? Number(amount) : 3500;
-    let itemTitle = (courseTitle && courseTitle.trim()) ? courseTitle.trim() : (courseId || 'دورة منصة نجحت');
+    let finalAmount = Number(amount) > 0 ? Number(amount) : 0;
+    let itemTitle = (courseTitle && courseTitle.trim()) ? courseTitle.trim() : '';
+    let foundProductCode = courseId;
 
-    if (!amount || Number(amount) <= 0) {
-      const dbProduct = await Product.findOne({ where: { code: courseId } });
+    // 1. البحث المرن عن المنتج في قاعدة البيانات (بالـ Primary Key ID أولاً إذا كان رقماً، أو بالـ Code)
+    if (courseId) {
+      let dbProduct = null;
+      if (!isNaN(courseId)) {
+        dbProduct = await Product.findByPk(courseId);
+      }
+      if (!dbProduct) {
+        dbProduct = await Product.findOne({ where: { code: courseId } });
+      }
+
       if (dbProduct) {
-        finalAmount = dbProduct.price;
-        if (!courseTitle) itemTitle = dbProduct.name;
+        if (finalAmount <= 0) {
+          finalAmount = dbProduct.price; // جلب السعر الصحيح للمنتج 5 (مثلاً 2900 دج)
+        }
+        if (!itemTitle) {
+          itemTitle = dbProduct.name; // جلب اسم المنتج الصحيح للمنتج 5
+        }
+        foundProductCode = dbProduct.code || dbProduct.id;
       }
     }
+
+    // إذا لم يحدد عنوان أو مبلغ يلجأ للافتراضي
+    if (finalAmount <= 0) finalAmount = 3500;
+    if (!itemTitle) itemTitle = courseId ? `دورة ${courseId}` : 'دورة منصة نجحت';
 
     const customerName = (fullName && fullName.trim()) ? fullName.trim() : 'طالب نجحت';
     const serial_number = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -132,7 +149,7 @@ const processPurchase = async (req, res) => {
         customer_name: customerName,
         phone: phone || null,
         email: email || null,
-        product_id: courseId || 'FREE-PACK',
+        product_id: String(courseId || 'FREE-PACK'),
         product_name: itemTitle,
         payment_method: normalizedMethod,
         payment_status: 'paid',
@@ -167,10 +184,10 @@ const processPurchase = async (req, res) => {
       const webhookUrl = `${protocol}://${hostHeader}/api/purchase/webhook/chargily`;
 
       const chargilyResult = await createChargilyCheckout({
-        amount: finalAmount, // المبلغ الممرر مباشرة
+        amount: finalAmount, // السعر الصحيح المأخوذ من المنتج رقم 5 (مثلاً 2900 دج)
         currency: 'dzd',
-        title: itemTitle,
-        courseId: courseId || 'CR-101',
+        title: itemTitle,    // العنوان الصحيح للمنتج رقم 5
+        courseId: String(courseId || 'CR-101'),
         customerName,
         customerEmail: email || '',
         orderId: serial_number,
@@ -190,7 +207,7 @@ const processPurchase = async (req, res) => {
       customer_name: customerName,
       phone: phone || null,
       email: email || null,
-      product_id: courseId || 'CR-101',
+      product_id: String(courseId || 'CR-101'),
       product_name: itemTitle,
       payment_method: normalizedMethod,
       payment_status: 'pending',
@@ -212,7 +229,7 @@ const processPurchase = async (req, res) => {
 };
 
 /**
- * معالجة الـ Webhook من Chargily وتعديل قاعدة البيانات وتوليد رابط النجاح المشفر
+ * معالجة الـ Webhook من Chargily وتعديل قاعدة البيانات
  * POST /api/purchase/webhook/chargily
  */
 const handleChargilyWebhook = async (req, res) => {

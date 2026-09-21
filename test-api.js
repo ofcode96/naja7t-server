@@ -26,9 +26,9 @@ function makeRequest(options, postData, headers = {}) {
 async function runTests() {
   console.log(`--- Testing Checkout Endpoint on Port ${PORT} ---`);
   const payload = JSON.stringify({
-    courseId: 'BAC-MATH-2026',
-    amount: 2500,
-    fullName: 'طالب بتسعيير ديناميكي',
+    courseId: '5',
+    fullName: 'محمد الأمين',
+    email: 'student@example.com',
     paymentMethod: 'EDAHABIA'
   });
 
@@ -38,7 +38,7 @@ async function runTests() {
   }, payload);
 
   console.log('Status:', res.statusCode);
-  console.log('Checkout URL:', res.body.checkoutUrl);
+  console.log('Product Name:', res.body.data ? res.body.data.product_name : 'N/A');
 }
 
 runTests().catch(console.error);
