@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-// 1. جدول المنتجات (Products) مع حفظ معرفات Chargily للربط التام وعدم التكرار
+// 1. جدول المنتجات (Products)
 const Product = sequelize.define('Product', {
   id: {
     type: DataTypes.INTEGER,
@@ -42,7 +42,7 @@ const Product = sequelize.define('Product', {
   timestamps: true
 });
 
-// 2. جدول العملاء والعمليات (Customers & Purchases)
+// 2. جدول العملاء والعمليات (Customers & Purchases) مع دعم الريفر والبيانات الكاملة
 const Customer = sequelize.define('Customer', {
   id: {
     type: DataTypes.INTEGER,
@@ -65,6 +65,10 @@ const Customer = sequelize.define('Customer', {
   },
   email: {
     type: DataTypes.STRING,
+    allowNull: true
+  },
+  ref: {
+    type: DataTypes.STRING, // كود الإحالة / الريفر (Referral)
     allowNull: true
   },
   product_id: {
@@ -102,7 +106,7 @@ const Customer = sequelize.define('Customer', {
   timestamps: true
 });
 
-// 3. جدول أكواد التفعيل (Activation Codes) - لا يقبل التكرار مطلقاً
+// 3. جدول أكواد التفعيل (Activation Codes)
 const ActivationCode = sequelize.define('ActivationCode', {
   id: {
     type: DataTypes.INTEGER,

@@ -4,10 +4,8 @@
 # Content-Type: application/json
 
 # {
-#   "courseId": "6",
-#   "fullName": "محمد oussama",
-#   "email": "hgero@example.com",
-#   "paymentMethod": "EDAHABIA"
+#   "courseId": "1"
+  
 # }
 
 GET https://naja7t-server.onrender.com/api/customers
@@ -24,9 +22,18 @@ Content-Type: application/json
 # Content-Type: application/json
 
 # {
-#     "code": "01m308pzk5cgr6wfm9synfbf7v",
+#     "code": "BEM-PACK",
 #     "name":  "باقة نجحت المتكاملة",
 #     "description": "الباقة الاقوى لتلاميذ السنة الرابعة متوسط BEM ",
 #     "price": 2900,
 #     "is_active": true
+# }
+
+
+# POST https://naja7t-server.onrender.com/api/admin/reset
+# Content-Type: application/json
+
+# {
+#   "target": "all",
+#   "seed": false
 # }

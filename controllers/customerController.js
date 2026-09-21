@@ -6,7 +6,7 @@ const {
 } = require('../config/chargily');
 const { generateSuccessUrl } = require('../utils/encryption');
 
-// GET /api/customers - جلب كافة العملاء بأمان تام وتجنب الـ 500
+// GET /api/customers - جلب كافة العملاء
 const getAllCustomers = async (req, res) => {
   try {
     const customers = await Customer.findAll({ order: [['id', 'DESC']] });
@@ -43,7 +43,7 @@ const getCustomerById = async (req, res) => {
 // POST /api/customers - إضافة عميل يدوي
 const createCustomerRecord = async (req, res) => {
   try {
-    const { customer_name, phone, email, product_id, product_name, payment_method, payment_status, activation_code } = req.body;
+    const { customer_name, phone, email, ref, product_id, product_name, payment_method, payment_status, activation_code } = req.body;
     
     const serial_number = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -52,6 +52,7 @@ const createCustomerRecord = async (req, res) => {
       customer_name: customer_name || 'طالب نجحت',
       phone: phone || null,
       email: email || null,
+      ref: ref || null,
       product_id: product_id || null,
       product_name: product_name || null,
       payment_method: payment_method ? payment_method.toUpperCase() : 'PENDING',
@@ -97,7 +98,7 @@ const deleteCustomerRecord = async (req, res) => {
 };
 
 /**
- * معالجة الشراء المبسطة
+ * معالجة الشراء وحفظ بيانات المشتري الممررة المبدئية وكود الريفر إن وجد
  * POST /api/purchase/checkout
  */
 const processPurchase = async (req, res) => {
@@ -105,8 +106,11 @@ const processPurchase = async (req, res) => {
     const {
       courseId,
       fullName,
+      customerName,
       phone,
       email,
+      ref,
+      referral,
       paymentMethod = 'EDAHABIA',
       successUrl,
       failureUrl
@@ -116,6 +120,7 @@ const processPurchase = async (req, res) => {
       return res.status(400).json({ success: false, error: 'يرجى تحديد معرف المنتج (courseId)' });
     }
 
+    // 1. البحث عن المنتج في قاعدة البيانات بالـ ID أو الـ Code
     let dbProduct = null;
     if (!isNaN(courseId)) {
       dbProduct = await Product.findByPk(courseId);
@@ -131,6 +136,13 @@ const processPurchase = async (req, res) => {
     const serial_number = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
     const normalizedMethod = paymentMethod.toUpperCase();
 
+    // حفظ الاسم والهاتف والإيميل والريفر الممرر من الـ Request مباشرة دون مسحها
+    const actualName = (fullName || customerName || '').trim() || 'طالب نجحت';
+    const actualPhone = phone ? String(phone).trim() : null;
+    const actualEmail = email ? String(email).trim() : null;
+    const actualRef = ref || referral || null;
+
+    // 2. معالجة الحالات المجانية فورياً
     if (['FREE', 'SADAQA', 'CONTEST'].includes(normalizedMethod)) {
       let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
       let codeStr = actCode ? actCode.code : `FREE-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -143,9 +155,10 @@ const processPurchase = async (req, res) => {
 
       const customer = await Customer.create({
         serial_number,
-        customer_name: fullName ? fullName.trim() : 'طالب نجحت',
-        phone: phone || null,
-        email: email || null,
+        customer_name: actualName,
+        phone: actualPhone,
+        email: actualEmail,
+        ref: actualRef,
         product_id: String(dbProduct.id),
         product_name: dbProduct.name,
         payment_method: normalizedMethod,
@@ -155,9 +168,10 @@ const processPurchase = async (req, res) => {
 
       const encryptedSuccessUrl = generateSuccessUrl(successUrl, {
         orderId: serial_number,
-        customerName: customer.customer_name,
+        customerName: actualName,
         activationCode: codeStr,
         paymentMethod: normalizedMethod,
+        ref: actualRef,
         status: 'paid'
       });
 
@@ -169,6 +183,7 @@ const processPurchase = async (req, res) => {
       });
     }
 
+    // 3. إنشاء أو إعادة استخدام سعر Chargily وتمرير metadata
     const priceId = await getOrCreateChargilyPriceForProduct(dbProduct);
 
     const hostHeader = req.get('host');
@@ -181,17 +196,22 @@ const processPurchase = async (req, res) => {
       title: dbProduct.name,
       priceId,
       orderId: serial_number,
+      customerName: actualName,
+      customerEmail: actualEmail,
+      ref: actualRef,
       successUrl,
       failureUrl,
       webhookUrl,
       paymentMethod: normalizedMethod === 'EDAHABIA' ? 'edahabia' : (normalizedMethod === 'CIB' ? 'cib' : null)
     });
 
+    // 4. إنشاء سجل العميل ببياناته الكاملة الممررة بالـ Request والـ Ref
     const customer = await Customer.create({
       serial_number,
-      customer_name: fullName ? fullName.trim() : 'في انتظار إدخال البيانات بصفحة Chargily',
-      phone: phone || null,
-      email: email || null,
+      customer_name: actualName,
+      phone: actualPhone,
+      email: actualEmail,
+      ref: actualRef,
       product_id: String(dbProduct.id),
       product_name: dbProduct.name,
       payment_method: normalizedMethod,
@@ -202,7 +222,7 @@ const processPurchase = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'تم إنشاء الطلب، يرجى التوجه لصفحة Chargily Pay لإدخال بياناتك والدفع.',
+      message: 'تم تسجيل الطلب وبناء رابط الدفع بنجاح.',
       checkoutUrl: chargilyResult.checkoutUrl,
       data: customer
     });
@@ -214,7 +234,7 @@ const processPurchase = async (req, res) => {
 };
 
 /**
- * معالجة الـ Webhook من Chargily
+ * معالجة الـ Webhook من Chargily وتعديل وتحديث بيانات المشتري والـ Ref
  * POST /api/purchase/webhook/chargily
  */
 const handleChargilyWebhook = async (req, res) => {
@@ -243,15 +263,25 @@ const handleChargilyWebhook = async (req, res) => {
       if (serial_number) {
         const customer = await Customer.findOne({ where: { serial_number } });
         if (customer) {
-          const chargilyCustomer = checkoutData.customer || {};
-          if (chargilyCustomer.name || chargilyCustomer.full_name) {
-            customer.customer_name = chargilyCustomer.name || chargilyCustomer.full_name;
+          const chargilyCust = checkoutData.customer || {};
+          const meta = checkoutData.metadata || {};
+
+          const nameFromWebhook = chargilyCust.name || chargilyCust.full_name || meta.customer_name;
+          const emailFromWebhook = chargilyCust.email || meta.customer_email;
+          const phoneFromWebhook = chargilyCust.phone;
+          const refFromWebhook = meta.ref;
+
+          if (nameFromWebhook && nameFromWebhook.trim()) {
+            customer.customer_name = nameFromWebhook.trim();
           }
-          if (chargilyCustomer.email) {
-            customer.email = chargilyCustomer.email;
+          if (emailFromWebhook && emailFromWebhook.trim()) {
+            customer.email = emailFromWebhook.trim();
           }
-          if (chargilyCustomer.phone) {
-            customer.phone = chargilyCustomer.phone;
+          if (phoneFromWebhook && phoneFromWebhook.trim()) {
+            customer.phone = phoneFromWebhook.trim();
+          }
+          if (refFromWebhook && !customer.ref) {
+            customer.ref = refFromWebhook;
           }
 
           let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
@@ -268,7 +298,7 @@ const handleChargilyWebhook = async (req, res) => {
           customer.activation_code = codeStr;
           await customer.save();
 
-          console.log(`✅ تم تخزين بيانات المشتري الفعلي (${customer.customer_name}) وتأكيد الدفع عبر Webhook Chargily!`);
+          console.log(`✅ [Webhook Paid] تم تحديث العميل (${customer.customer_name}) وتأكيد الطلب برقم كود (${codeStr})!`);
         }
       }
     }

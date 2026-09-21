@@ -21,19 +21,16 @@ if (isConfigured) {
 }
 
 /**
- * جلب أو إنشاء السعر المربوط بالمنتج لدى Chargily Pay وحفظه في قاعدة البيانات لتفادي التكرار نهائياً
- * @param {object} dbProduct نموذج المنتج من قاعدة البيانات
+ * جلب أو إنشاء السعر المربوط بالمنتج لدى Chargily Pay وحفظه في قاعدة البيانات
  */
 async function getOrCreateChargilyPriceForProduct(dbProduct) {
   if (!chargilyClient || !dbProduct) return null;
 
-  // إذا كان السعر معرفاً مسبقاً لدى Chargily ومخزناً في القاعدة نعيده فوراً
   if (dbProduct.chargily_price_id) {
     return dbProduct.chargily_price_id;
   }
 
   try {
-    // 1. إنشاء المنتج لدى Chargily في حال لم ينشأ بعد
     let productId = dbProduct.chargily_product_id;
     if (!productId) {
       const chargilyProd = await chargilyClient.createProduct({
@@ -44,7 +41,6 @@ async function getOrCreateChargilyPriceForProduct(dbProduct) {
       dbProduct.chargily_product_id = productId;
     }
 
-    // 2. إنشاء السعر لدى Chargily
     const chargilyPrice = await chargilyClient.createPrice({
       amount: Math.round(dbProduct.price),
       currency: 'dzd',
@@ -63,7 +59,7 @@ async function getOrCreateChargilyPriceForProduct(dbProduct) {
 }
 
 /**
- * دالة إنشاء جلسة دفع لدى Chargily Pay V2 باستخدام المعرف المخزن مسبقاً بدون أي تكرار
+ * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع تمرير الـ metadata والـ ref
  */
 async function createChargilyCheckout({
   amount,
@@ -71,6 +67,9 @@ async function createChargilyCheckout({
   title = 'دورة منصة نجحت التعليمية',
   priceId,
   orderId,
+  customerName,
+  customerEmail,
+  ref,
   successUrl,
   failureUrl,
   webhookUrl,
@@ -83,7 +82,6 @@ async function createChargilyCheckout({
     try {
       let finalPriceId = priceId;
 
-      // إذا لم يتوفر priceId جاهز، نولد السعر على المنتج مباشرة
       if (!finalPriceId) {
         const prod = await chargilyClient.createProduct({ name: title });
         const price = await chargilyClient.createPrice({
@@ -104,7 +102,10 @@ async function createChargilyCheckout({
         success_url,
         failure_url,
         metadata: {
-          order_id: orderId
+          order_id: orderId,
+          customer_name: customerName || '',
+          customer_email: customerEmail || '',
+          ref: ref || ''
         }
       };
 

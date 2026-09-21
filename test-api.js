@@ -24,18 +24,19 @@ function makeRequest(options, postData, headers = {}) {
 }
 
 async function runTests() {
-  console.log(`--- Testing Simplified Purchase Request ({ "courseId": 1 }) ---`);
-  const checkoutPayload = JSON.stringify({
-    courseId: 1
+  console.log(`--- Landing Page Checkout Test on Port ${PORT} ---`);
+  const payload = JSON.stringify({
+    courseId: 1,
+    ref: 'AFFILIATE-N2026'
   });
 
-  const resCheckout = await makeRequest({
+  const res = await makeRequest({
     host: 'localhost', port: PORT, path: '/api/purchase/checkout', method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(checkoutPayload) }
-  }, checkoutPayload);
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+  }, payload);
 
-  console.log('Status:', resCheckout.statusCode);
-  console.log('Checkout URL:', resCheckout.body.checkoutUrl);
+  console.log('Status:', res.statusCode);
+  console.log('Checkout URL:', res.body.checkoutUrl);
 }
 
 runTests().catch(console.error);
