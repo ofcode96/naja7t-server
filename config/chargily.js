@@ -59,13 +59,14 @@ async function getOrCreateChargilyPriceForProduct(dbProduct) {
 }
 
 /**
- * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع تمرير الـ metadata والـ ref
+ * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع تمرير البيانات الشاملة في metadata
  */
 async function createChargilyCheckout({
   amount,
   currency = 'dzd',
   title = 'دورة منصة نجحت التعليمية',
   priceId,
+  courseId,
   orderId,
   customerName,
   customerEmail,
@@ -103,6 +104,8 @@ async function createChargilyCheckout({
         failure_url,
         metadata: {
           order_id: orderId,
+          course_id: String(courseId || ''),
+          course_name: title || '',
           customer_name: customerName || '',
           customer_email: customerEmail || '',
           ref: ref || ''
