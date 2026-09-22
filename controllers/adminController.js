@@ -58,6 +58,45 @@ const resetDatabase = async (req, res) => {
   }
 };
 
+/**
+ * اختبار إرسال بريد إلكتروني تجريبي لعنوان محدد عبر SMTP
+ * POST /api/admin/test-email
+ */
+const testEmail = async (req, res) => {
+  try {
+    const { sendPurchaseConfirmationEmail } = require('../utils/emailService');
+    const { email } = req.body;
+    const recipient = email || req.query.email || 'baa227001@smtp-brevo.com';
+
+    const result = await sendPurchaseConfirmationEmail({
+      toEmail: recipient,
+      customerName: 'زبون تجريبي - منصة نجحت',
+      serialNumber: 'CUST-TEST-9999',
+      activationCode: 'NJ-BREVO-TEST-2026',
+      productName: 'باقة نجحت المعتمدة - تجربة Brevo SMTP'
+    });
+
+    if (result.success) {
+      return res.status(200).json({
+        success: true,
+        message: `تم إرسال البريد الإلكتروني بنجاح إلى (${recipient}) عبر SMTP!`,
+        messageId: result.messageId,
+        data: result
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: result.error || result.reason || 'تعذر إرسال البريد الإلكتروني',
+        data: result
+      });
+    }
+  } catch (error) {
+    console.error('خطأ في اختبار الإيميل:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
-  resetDatabase
+  resetDatabase,
+  testEmail
 };
