@@ -288,6 +288,54 @@ const processPurchase = async (req, res) => {
   }
 };
 
+// POST /api/customers/:id/resend-email - إعادة إرسال بريد التأكيد لعميل محدد
+const resendCustomerEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = isNaN(id)
+      ? await Customer.findOne({ where: { serial_number: id } })
+      : await Customer.findByPk(id);
+
+    if (!customer) {
+      return res.status(404).json({ success: false, error: 'العميل غير موجود' });
+    }
+
+    if (!customer.email) {
+      return res.status(400).json({ success: false, error: 'لا يوجد بريد إلكتروني مسجل لهذا العميل' });
+    }
+
+    console.log(`⏳ [Manual Resend Email] جاري إرسال البريد الإلكتروني للعميل (${customer.serial_number}) -> ${customer.email}`);
+
+    const emailRes = await sendPurchaseConfirmationEmail({
+      toEmail: customer.email,
+      customerName: customer.customer_name,
+      serialNumber: customer.serial_number,
+      activationCode: customer.activation_code || 'كود غير معين',
+      productName: customer.product_name || 'دورة منصة نجحت التعليمية'
+    });
+
+    if (emailRes.success) {
+      return res.status(200).json({
+        success: true,
+        message: `تم إرسال بريد التأكيد وكود التفعيل بنجاح إلى (${customer.email})!`,
+        serialNumber: customer.serial_number,
+        activationCode: customer.activation_code,
+        result: emailRes
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: `فشل إرسال البريد الإلكتروني إلى (${customer.email})`,
+        error: emailRes.error || emailRes.reason,
+        result: emailRes
+      });
+    }
+  } catch (err) {
+    console.error('Error in resendCustomerEmail:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 /**
  * معالجة الـ Webhook من Chargily: إنشاء وتخزين سجل المشتري الفعلي وتأكيده في قاعدة البيانات عند الدفع فقط
  * POST /api/purchase/webhook/chargily
@@ -409,13 +457,19 @@ const handleChargilyWebhook = async (req, res) => {
 
       // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
       if (customer.email) {
-        sendPurchaseConfirmationEmail({
-          toEmail: customer.email,
-          customerName: customer.customer_name,
-          serialNumber: customer.serial_number,
-          activationCode: codeStr,
-          productName: customer.product_name || courseName || 'دورة منصة نجحت التعليمية'
-        }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
+        console.log(`⏳ [Webhook Email Dispatch] جاري إرسال البريد الإلكتروني إلى: ${customer.email}`);
+        try {
+          const emailRes = await sendPurchaseConfirmationEmail({
+            toEmail: customer.email,
+            customerName: customer.customer_name,
+            serialNumber: customer.serial_number,
+            activationCode: codeStr,
+            productName: customer.product_name || courseName || 'دورة منصة نجحت التعليمية'
+          });
+          console.log(`✉️ [Webhook Email Result] recipient: ${customer.email}, result:`, emailRes);
+        } catch (e) {
+          console.warn('⚠️ [Webhook Email Exception]:', e.message);
+        }
       } else {
         console.warn(`⚠️ [Webhook Email Warning] لم يتم إرسال إيميل لـ ${customer.serial_number}: الإيميل غير متوفر في بيانات الطلب.`);
       }
@@ -451,6 +505,7 @@ module.exports = {
   createCustomerRecord,
   updateCustomerRecord,
   deleteCustomerRecord,
+  resendCustomerEmail,
   processPurchase,
   handleChargilyWebhook
 };
