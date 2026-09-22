@@ -10,11 +10,12 @@ const { resetDatabase, testEmail, getServerIp } = require('../controllers/adminC
 router.post('/reset', resetDatabase);
 
 /**
- * @route   POST /api/admin/test-email
+ * @route   POST & GET /api/admin/test-email
  * @desc    اختبار إرسال بريد إلكتروني تجريبي لبريد محدد للتحقق من الاتصال وBrevo SMTP
  * @access  Admin
  */
 router.post('/test-email', testEmail);
+router.get('/test-email', testEmail);
 
 /**
  * @route   GET /api/admin/my-ip
