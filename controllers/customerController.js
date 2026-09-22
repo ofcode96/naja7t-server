@@ -2,6 +2,7 @@ const { Customer, Product, ActivationCode } = require('../models');
 const {
   createChargilyCheckout,
   getOrCreateChargilyPriceForProduct,
+  getChargilyCustomer,
   verifyChargilyWebhookSignature
 } = require('../config/chargily');
 const { generateSuccessUrl } = require('../utils/encryption');
@@ -192,6 +193,7 @@ const processPurchase = async (req, res) => {
       orderId: serial_number,
       customerName: actualName,
       customerEmail: actualEmail,
+      customerPhone: actualPhone,
       ref: actualRef,
       successUrl,
       failureUrl,
@@ -246,17 +248,28 @@ const handleChargilyWebhook = async (req, res) => {
 
     if (event === 'checkout.paid' || event === 'invoice.paid') {
       const meta = checkoutData.metadata || (checkoutData.checkout && checkoutData.checkout.metadata) || {};
-      const chargilyCust = checkoutData.customer || (checkoutData.checkout && checkoutData.checkout.customer) || {};
+      let chargilyCust = checkoutData.customer || (checkoutData.checkout && checkoutData.checkout.customer) || {};
+
+      // محاولة جلب العميل مباشرة من Chargily API إذا تم توفير customer_id
+      const customerId = checkoutData.customer_id || (checkoutData.checkout && checkoutData.checkout.customer_id);
+      if (customerId && (!chargilyCust.name && !chargilyCust.email && !chargilyCust.phone)) {
+        try {
+          const apiCust = await getChargilyCustomer(customerId);
+          if (apiCust) chargilyCust = apiCust;
+        } catch (e) {
+          console.warn('⚠️ تعذر جلب العميل من Chargily API:', e.message);
+        }
+      }
 
       const serial_number = meta.order_id || `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
       const courseId = meta.course_id || null;
       const courseName = meta.course_name || null;
       const refCode = meta.ref || null;
 
-      // استخراج بيانات المشتري الفعلي الواردة في الـ Webhook من Chargily
-      const finalName = (chargilyCust.name || chargilyCust.full_name || meta.customer_name || '').trim() || 'طالب نجحت';
-      const finalEmail = (chargilyCust.email || meta.customer_email || '').trim() || null;
-      const finalPhone = (chargilyCust.phone || meta.customer_phone || '').trim() || null;
+      // استخراج بيانات المشتري الفعلي الواردة في الـ Webhook من Chargily أو الـ Metadata
+      const finalName = (chargilyCust.name || chargilyCust.full_name || meta.customer_name || meta.fullName || '').trim() || 'طالب نجحت';
+      const finalEmail = (chargilyCust.email || meta.customer_email || meta.email || '').trim() || null;
+      const finalPhone = (chargilyCust.phone || chargilyCust.mobile || meta.customer_phone || meta.phone || '').trim() || null;
 
       const rawPaymentMethod = checkoutData.payment_method || (checkoutData.checkout && checkoutData.checkout.payment_method) || 'EDAHABIA';
       const paymentMethod = String(rawPaymentMethod).toUpperCase();

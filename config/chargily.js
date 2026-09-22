@@ -70,6 +70,7 @@ async function createChargilyCheckout({
   orderId,
   customerName,
   customerEmail,
+  customerPhone,
   ref,
   successUrl,
   failureUrl,
@@ -108,6 +109,7 @@ async function createChargilyCheckout({
           course_name: title || '',
           customer_name: customerName || '',
           customer_email: customerEmail || '',
+          customer_phone: customerPhone || '',
           ref: ref || ''
         }
       };
@@ -146,6 +148,19 @@ async function createChargilyCheckout({
 }
 
 /**
+ * جلب بيانات العميل المباشرة من Chargily Pay بواسطة customer_id
+ */
+async function getChargilyCustomer(customerId) {
+  if (!chargilyClient || !customerId) return null;
+  try {
+    return await chargilyClient.getCustomer(customerId);
+  } catch (err) {
+    console.error('❌ خطأ في جلب بيانات العميل من Chargily API:', err.message);
+    return null;
+  }
+}
+
+/**
  * دالة التحقق من التوقيع الرقمي للـ Webhook
  */
 function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
@@ -171,6 +186,7 @@ function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
 module.exports = {
   getOrCreateChargilyPriceForProduct,
   createChargilyCheckout,
+  getChargilyCustomer,
   verifyChargilyWebhookSignature,
   isChargilyConfigured: () => !!chargilyClient
 };
