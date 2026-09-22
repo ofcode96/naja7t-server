@@ -96,7 +96,26 @@ const testEmail = async (req, res) => {
   }
 };
 
+/**
+ * جلب الـ IP الخارجي الحالي الذي يستخدمه السيرفر للخروج للشبكة
+ * GET /api/admin/my-ip
+ */
+const getServerIp = async (req, res) => {
+  try {
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const ipData = await ipRes.json();
+    return res.status(200).json({
+      success: true,
+      ip: ipData.ip,
+      message: `الـ IP الحالي الخارجي لسيرفرك هو: ${ipData.ip}`
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   resetDatabase,
-  testEmail
+  testEmail,
+  getServerIp
 };

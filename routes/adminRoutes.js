@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { resetDatabase, testEmail } = require('../controllers/adminController');
+const { resetDatabase, testEmail, getServerIp } = require('../controllers/adminController');
 
 /**
  * @route   POST /api/admin/reset
@@ -15,5 +15,12 @@ router.post('/reset', resetDatabase);
  * @access  Admin
  */
 router.post('/test-email', testEmail);
+
+/**
+ * @route   GET /api/admin/my-ip
+ * @desc    جلب الـ IP الخارجي الحالي للسيرفر لإضافته في Brevo Authorized IPs
+ * @access  Admin
+ */
+router.get('/my-ip', getServerIp);
 
 module.exports = router;
