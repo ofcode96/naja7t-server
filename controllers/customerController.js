@@ -8,6 +8,7 @@ const {
   verifyChargilyWebhookSignature
 } = require('../config/chargily');
 const { generateSuccessUrl } = require('../utils/encryption');
+const { sendPurchaseConfirmationEmail } = require('../utils/emailService');
 
 /**
  * دالة مساعدة لاختيار وتخصيص كود تفعيل واحد فقط غير مستعمل وغير منتهي الصلاحية للزبون
@@ -209,6 +210,17 @@ const processPurchase = async (req, res) => {
         activation_code: codeStr
       });
 
+      // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
+      if (customer.email) {
+        sendPurchaseConfirmationEmail({
+          toEmail: customer.email,
+          customerName: customer.customer_name,
+          serialNumber: customer.serial_number,
+          activationCode: codeStr,
+          productName: dbProduct.name
+        }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
+      }
+
       const message = `تم تفعيل الطلب بنجاح! سيريال العميل: ${serial_number} | كود التفعيل: ${codeStr}`;
 
       const encryptedSuccessUrl = generateSuccessUrl(successUrl, {
@@ -356,6 +368,17 @@ const handleChargilyWebhook = async (req, res) => {
       const codeStr = await assignValidActivationCode(serial_number, courseId);
       customer.activation_code = codeStr;
       await customer.save();
+
+      // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
+      if (customer.email) {
+        sendPurchaseConfirmationEmail({
+          toEmail: customer.email,
+          customerName: customer.customer_name,
+          serialNumber: customer.serial_number,
+          activationCode: codeStr,
+          productName: customer.product_name || courseName || 'دورة منصة نجحت التعليمية'
+        }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
+      }
 
       const successMessage = `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | كود التفعيل: ${codeStr}`;
 
