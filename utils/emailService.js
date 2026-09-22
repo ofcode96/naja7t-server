@@ -2,10 +2,10 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 /**
- * محاولة الإرسال عبر Brevo HTTP API المباشر إذا توفر مفتاح Brevo API صريح
+ * محاولة الإرسال عبر Brevo HTTP API المباشر (Port 443 - غير محظور في الاستضافات)
  */
 async function sendViaBrevoApi({ toEmail, customerName, serialNumber, activationCode, productName, htmlContent }) {
-  const apiKey = process.env.EMAIL_PASS || '';
+  const apiKey = (process.env.EMAIL_PASS || '').trim();
   if (!apiKey.startsWith('xkeysib-')) {
     throw new Error('ليس مفتاح Brevo API صريح (xkeysib-).');
   }
@@ -30,14 +30,49 @@ async function sendViaBrevoApi({ toEmail, customerName, serialNumber, activation
 
   const data = await response.json();
   if (response.ok) {
-    return { success: true, messageId: data.messageId || 'brevo-api-ok' };
+    return { success: true, messageId: data.messageId || 'brevo-api-ok', provider: 'Brevo HTTP API' };
   } else {
     throw new Error(data.message || JSON.stringify(data));
   }
 }
 
 /**
- * إنشاء ناقل Nodemailer مع خيارات تخصيص المنفذ
+ * محاولة الإرسال عبر Resend HTTP API المباشر (Port 443 - غير محظور في الاستضافات)
+ */
+async function sendViaResendApi({ toEmail, customerName, serialNumber, activationCode, productName, htmlContent }) {
+  const apiKey = (process.env.RESEND_API_KEY || process.env.EMAIL_PASS || '').trim();
+  if (!apiKey.startsWith('re_')) {
+    throw new Error('ليس مفتاح Resend API صريح (re_).');
+  }
+
+  const senderEmail = process.env.EMAIL_USER && !process.env.EMAIL_USER.includes('@gmail.com')
+    ? process.env.EMAIL_USER
+    : 'onboarding@resend.dev';
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: `منصة نجحت التعليمية <${senderEmail}>`,
+      to: [toEmail.trim()],
+      subject: `🎓 كود التفعيل وسيريال الشراء الخاص بك - منصة نجحت (${productName})`,
+      html: htmlContent
+    })
+  });
+
+  const data = await response.json();
+  if (response.ok) {
+    return { success: true, messageId: data.id || 'resend-api-ok', provider: 'Resend HTTP API' };
+  } else {
+    throw new Error(data.message || JSON.stringify(data));
+  }
+}
+
+/**
+ * إنشاء ناقل Nodemailer تقليدي للمستضيفات المحلية أو السيرفرات التي تسمح بـ SMTP
  */
 function createTransporter(customPort = null, customSecure = null) {
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
@@ -58,9 +93,9 @@ function createTransporter(customPort = null, customSecure = null) {
       port: port,
       secure: isSecure,
       auth: { user, pass },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
       tls: {
         rejectUnauthorized: false
       }
@@ -74,9 +109,9 @@ function createTransporter(customPort = null, customSecure = null) {
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     tls: {
       rejectUnauthorized: false
     }
@@ -127,7 +162,7 @@ async function sendPurchaseConfirmationEmail({
         </div>
         <div class="content">
           <div class="welcome">مرحباً ${customerName}،</div>
-          <p>شكراً لثقتك واشتراكك في منصة نجحت! تم إتمام عملية الشراء بنجاح وتأكيد الدفع الخاص بك.</p>
+          <p>شكراً لثقتك وااشتراكك في منصة نجحت! تم إتمام عملية الشراء بنجاح وتأكيد الدفع الخاص بك.</p>
           
           <div class="card">
             <div style="font-weight: bold; margin-bottom: 8px; color: #047857;">📦 تفاصيل الاشتراك:</div>
@@ -152,8 +187,29 @@ async function sendPurchaseConfirmationEmail({
     </html>
   `;
 
-  // 1. المحاولة الأولى: عبر Brevo HTTP API إذا كان المفتاح يبدأ بـ xkeysib-
-  if ((process.env.EMAIL_PASS || '').startsWith('xkeysib-')) {
+  const emailPass = (process.env.EMAIL_PASS || '').trim();
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
+
+  // 1. تجربة Resend HTTP API (إذا بدأ المفتاح بـ re_)
+  if (resendApiKey.startsWith('re_') || emailPass.startsWith('re_')) {
+    try {
+      const apiResult = await sendViaResendApi({
+        toEmail,
+        customerName,
+        serialNumber,
+        activationCode,
+        productName,
+        htmlContent
+      });
+      console.log(`✉️ [Resend API Success] تم إرسال بريد التأكيد إلى (${toEmail})! ID: ${apiResult.messageId}`);
+      return apiResult;
+    } catch (apiError) {
+      console.warn(`⚠️ [Resend API Error]: ${apiError.message}`);
+    }
+  }
+
+  // 2. تجربة Brevo HTTP API (إذا بدأ المفتاح بـ xkeysib-)
+  if (emailPass.startsWith('xkeysib-')) {
     try {
       const apiResult = await sendViaBrevoApi({
         toEmail,
@@ -163,18 +219,18 @@ async function sendPurchaseConfirmationEmail({
         productName,
         htmlContent
       });
-      console.log(`✉️ [Brevo API Success] تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${apiResult.messageId}`);
+      console.log(`✉️ [Brevo API Success] تم إرسال بريد التأكيد إلى (${toEmail})! ID: ${apiResult.messageId}`);
       return apiResult;
     } catch (apiError) {
-      console.warn(`⚠️ [Brevo API Fallback] تعذر الإرسال عبر HTTP API (${apiError.message})، الانتقال إلى SMTP...`);
+      console.warn(`⚠️ [Brevo API Error]: ${apiError.message}`);
     }
   }
 
+  // 3. المحاولة عبر SMTP (قد يفشل على Render بسبب حظر منافذ SMTP 25/465/587)
   const rawUser = process.env.EMAIL_USER || 'oussamabvb201283@gmail.com';
   const cleanEmail = rawUser.replace(/.*<|>.*/g, '').trim();
   const fromAddress = `"منصة نجحت التعليمية" <${cleanEmail}>`;
 
-  // 2. المحاولة عبر Nodemailer حسب المنفذ المحدد في الإعدادات
   const primaryPort = Number(process.env.EMAIL_PORT || 587);
   let transporter = createTransporter(primaryPort);
 
@@ -196,7 +252,6 @@ async function sendPurchaseConfirmationEmail({
   } catch (err) {
     console.error(`❌ [SMTP Dispatch Error - Port ${primaryPort}] تعذر الإرسال إلى (${toEmail}):`, err.message);
 
-    // إذا فشل المنفذ الأول بسبب timeout، نحاول تلقائياً بالمنفذ البديل (587 أو 465)
     const fallbackPort = primaryPort === 465 ? 587 : 465;
     console.log(`🔄 [SMTP Fallback] جاري تجربة الإرسال عبر المنفذ البديل Port ${fallbackPort}...`);
 
@@ -213,7 +268,11 @@ async function sendPurchaseConfirmationEmail({
       return { success: true, messageId: info.messageId, port: fallbackPort };
     } catch (fallbackErr) {
       console.error(`❌ [SMTP Fallback Error - Port ${fallbackPort}] فشل الإرسال أيضاً:`, fallbackErr.message);
-      return { success: false, error: err.message, fallbackError: fallbackErr.message };
+      return {
+        success: false,
+        error: `Render blocks raw SMTP socket connections (${err.message}). Please use Resend API Key (re_...) or Brevo API Key (xkeysib-...) in EMAIL_PASS.`,
+        fallbackError: fallbackErr.message
+      };
     }
   }
 }
