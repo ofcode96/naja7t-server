@@ -57,6 +57,23 @@ async function initDatabase() {
     console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${sequelize.getDialect().toUpperCase()})`);
     require('../models');
     await sequelize.sync();
+
+    // فحص وإضافة أي أعمدة مفقودة في SQLite تلقائياً مثل expires_at
+    if (sequelize.getDialect() === 'sqlite') {
+      try {
+        const [results] = await sequelize.query("PRAGMA table_info('activation_codes');");
+        if (results && results.length > 0) {
+          const hasExpiresAt = results.some(col => col.name === 'expires_at');
+          if (!hasExpiresAt) {
+            await sequelize.query("ALTER TABLE `activation_codes` ADD COLUMN `expires_at` DATETIME NULL;");
+            console.log('✅ تم إضافة عمود expires_at المفقود في جدول activation_codes بنجاح!');
+          }
+        }
+      } catch (colErr) {
+        console.warn('⚠️ فحص عمود expires_at في SQLite:', colErr.message);
+      }
+    }
+
     console.log('🔄 تم فحص ومزامنة الجداول بنجاح!');
     return true;
   } catch (error) {
