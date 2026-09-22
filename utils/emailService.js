@@ -2,12 +2,12 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 /**
- * محاولة الإرسال عبر Brevo HTTP API المباشر على المنفذ 443 (مضمون 100% بدون Timeout على Render)
+ * محاولة الإرسال عبر Brevo HTTP API المباشر إذا توفر مفتاح Brevo API صريح
  */
 async function sendViaBrevoApi({ toEmail, customerName, serialNumber, activationCode, productName, htmlContent }) {
-  const apiKey = process.env.EMAIL_PASS;
-  if (!apiKey || apiKey.includes('your_') || apiKey.includes('placeholder')) {
-    throw new Error('مفتاح EMAIL_PASS غير مفعل للـ API.');
+  const apiKey = process.env.EMAIL_PASS || '';
+  if (!apiKey.startsWith('xkeysib-')) {
+    throw new Error('ليس مفتاح Brevo API صريح (xkeysib-).');
   }
 
   const user = process.env.EMAIL_USER || 'baa227001@smtp-brevo.com';
@@ -37,12 +37,11 @@ async function sendViaBrevoApi({ toEmail, customerName, serialNumber, activation
 }
 
 /**
- * إنشاء ناقل Nodemailer SMTP احتياطي مع ضبط مهلة الاتصال لمنع التعليق
+ * إنشاء ناقل Nodemailer ذكي متوافق مع Gmail وجميع المزودين
  */
 function createTransporter() {
-  const host = process.env.EMAIL_HOST || 'smtp-relay.brevo.com';
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure = process.env.EMAIL_SECURE === 'true' || port === 465;
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.EMAIL_PORT || 465);
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
 
@@ -50,14 +49,28 @@ function createTransporter() {
     return null;
   }
 
+  const isGmail = (user && user.toLowerCase().includes('@gmail.com')) || (host && host.toLowerCase().includes('gmail'));
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000
+    });
+  }
+
+  const secure = process.env.EMAIL_SECURE === 'true' || port === 465;
+
   return nodemailer.createTransport({
     host,
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: {
       rejectUnauthorized: false
     }
@@ -133,30 +146,34 @@ async function sendPurchaseConfirmationEmail({
     </html>
   `;
 
-  // 1. المحاولة الأولى: عبر Brevo HTTP API المباشر السريع (منفذ 443)
-  try {
-    const apiResult = await sendViaBrevoApi({
-      toEmail,
-      customerName,
-      serialNumber,
-      activationCode,
-      productName,
-      htmlContent
-    });
-    console.log(`✉️ [Brevo API Success] تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${apiResult.messageId}`);
-    return apiResult;
-  } catch (apiError) {
-    console.warn(`⚠️ [Brevo API Fallback] تعذر الإرسال عبر HTTP API (${apiError.message})، المحاولة عبر Nodemailer SMTP...`);
+  // 1. المحاولة الأولى: عبر Brevo HTTP API إذا كان المفتاح يبدأ بـ xkeysib-
+  if ((process.env.EMAIL_PASS || '').startsWith('xkeysib-')) {
+    try {
+      const apiResult = await sendViaBrevoApi({
+        toEmail,
+        customerName,
+        serialNumber,
+        activationCode,
+        productName,
+        htmlContent
+      });
+      console.log(`✉️ [Brevo API Success] تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${apiResult.messageId}`);
+      return apiResult;
+    } catch (apiError) {
+      console.warn(`⚠️ [Brevo API Fallback] تعذر الإرسال عبر HTTP API (${apiError.message})، الانتقال إلى SMTP...`);
+    }
   }
 
-  // 2. المحاولة الثانية: عبر Nodemailer SMTP الاحتياطي
+  // 2. المحاولة عبر Nodemailer (يدعم Gmail الذكي تلقائياً)
   const transporter = createTransporter();
   if (!transporter) {
     console.warn(`⚠️ [Email Service] لم يتم تهيئة إعدادات SMTP في ملف .env. تم تجاوز الإرسال لـ ${toEmail}`);
     return { success: false, reason: 'SMTP credentials not configured in .env' };
   }
 
-  const fromAddress = process.env.EMAIL_FROM || `"منصة نجحت التعليمية" <${process.env.EMAIL_USER}>`;
+  const rawUser = process.env.EMAIL_USER || 'oussamabvb201283@gmail.com';
+  const cleanEmail = rawUser.replace(/.*<|>.*/g, '').trim();
+  const fromAddress = `"منصة نجحت التعليمية" <${cleanEmail}>`;
 
   try {
     const info = await transporter.sendMail({
