@@ -37,11 +37,11 @@ async function sendViaBrevoApi({ toEmail, customerName, serialNumber, activation
 }
 
 /**
- * إنشاء ناقل Nodemailer ذكي متوافق مع Gmail وجميع المزودين
+ * إنشاء ناقل Nodemailer مع خيارات تخصيص المنفذ
  */
-function createTransporter() {
+function createTransporter(customPort = null, customSecure = null) {
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = Number(process.env.EMAIL_PORT || 465);
+  const port = customPort || Number(process.env.EMAIL_PORT || 587);
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
 
@@ -52,16 +52,22 @@ function createTransporter() {
   const isGmail = (user && user.toLowerCase().includes('@gmail.com')) || (host && host.toLowerCase().includes('gmail'));
 
   if (isGmail) {
+    const isSecure = customSecure !== null ? customSecure : (port === 465);
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: port,
+      secure: isSecure,
       auth: { user, pass },
       connectionTimeout: 15000,
       greetingTimeout: 15000,
-      socketTimeout: 20000
+      socketTimeout: 20000,
+      tls: {
+        rejectUnauthorized: false
+      }
     });
   }
 
-  const secure = process.env.EMAIL_SECURE === 'true' || port === 465;
+  const secure = customSecure !== null ? customSecure : (process.env.EMAIL_SECURE === 'true' || port === 465);
 
   return nodemailer.createTransport({
     host,
@@ -164,16 +170,18 @@ async function sendPurchaseConfirmationEmail({
     }
   }
 
-  // 2. المحاولة عبر Nodemailer (يدعم Gmail الذكي تلقائياً)
-  const transporter = createTransporter();
+  const rawUser = process.env.EMAIL_USER || 'oussamabvb201283@gmail.com';
+  const cleanEmail = rawUser.replace(/.*<|>.*/g, '').trim();
+  const fromAddress = `"منصة نجحت التعليمية" <${cleanEmail}>`;
+
+  // 2. المحاولة عبر Nodemailer حسب المنفذ المحدد في الإعدادات
+  const primaryPort = Number(process.env.EMAIL_PORT || 587);
+  let transporter = createTransporter(primaryPort);
+
   if (!transporter) {
     console.warn(`⚠️ [Email Service] لم يتم تهيئة إعدادات SMTP في ملف .env. تم تجاوز الإرسال لـ ${toEmail}`);
     return { success: false, reason: 'SMTP credentials not configured in .env' };
   }
-
-  const rawUser = process.env.EMAIL_USER || 'oussamabvb201283@gmail.com';
-  const cleanEmail = rawUser.replace(/.*<|>.*/g, '').trim();
-  const fromAddress = `"منصة نجحت التعليمية" <${cleanEmail}>`;
 
   try {
     const info = await transporter.sendMail({
@@ -183,11 +191,30 @@ async function sendPurchaseConfirmationEmail({
       html: htmlContent
     });
 
-    console.log(`✉️ [SMTP Sent Successfully] تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
+    console.log(`✉️ [SMTP Sent Successfully] (Port ${primaryPort}) تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${info.messageId}`);
+    return { success: true, messageId: info.messageId, port: primaryPort };
   } catch (err) {
-    console.error(`❌ [SMTP Dispatch Error] تعذر إرسال البريد إلى (${toEmail}):`, err.message);
-    return { success: false, error: err.message };
+    console.error(`❌ [SMTP Dispatch Error - Port ${primaryPort}] تعذر الإرسال إلى (${toEmail}):`, err.message);
+
+    // إذا فشل المنفذ الأول بسبب timeout، نحاول تلقائياً بالمنفذ البديل (587 أو 465)
+    const fallbackPort = primaryPort === 465 ? 587 : 465;
+    console.log(`🔄 [SMTP Fallback] جاري تجربة الإرسال عبر المنفذ البديل Port ${fallbackPort}...`);
+
+    try {
+      const fallbackTransporter = createTransporter(fallbackPort, fallbackPort === 465);
+      const info = await fallbackTransporter.sendMail({
+        from: fromAddress,
+        to: toEmail.trim(),
+        subject: `🎓 كود التفعيل وسيريال الشراء الخاص بك - منصة نجحت (${productName})`,
+        html: htmlContent
+      });
+
+      console.log(`✉️ [SMTP Sent Successfully] (Port ${fallbackPort} Fallback) تم إرسال البريد لـ (${toEmail})! ID: ${info.messageId}`);
+      return { success: true, messageId: info.messageId, port: fallbackPort };
+    } catch (fallbackErr) {
+      console.error(`❌ [SMTP Fallback Error - Port ${fallbackPort}] فشل الإرسال أيضاً:`, fallbackErr.message);
+      return { success: false, error: err.message, fallbackError: fallbackErr.message };
+    }
   }
 }
 

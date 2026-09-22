@@ -68,25 +68,34 @@ const testEmail = async (req, res) => {
     const { email } = req.body || {};
     const recipient = email || req.query.email || 'oussamabvb201283@gmail.com';
 
-    // تشغيل الإرسال في الخلفية فوراً دون حجب الاستجابة
-    sendPurchaseConfirmationEmail({
+    console.log(`⏳ [Test Email Request] جاري تجربة إرسال بريد اختباري لـ: ${recipient}`);
+
+    const result = await sendPurchaseConfirmationEmail({
       toEmail: recipient,
       customerName: 'زبون تجريبي - منصة نجحت',
       serialNumber: 'CUST-TEST-9999',
       activationCode: 'NJ-TEST-2026',
       productName: 'باقة نجحت المعتمدة - تجربة بريد المنصة'
-    }).then(result => {
-      console.log(`✉️ [Background Test Email Result] recipient: ${recipient}, result:`, result);
-    }).catch(err => {
-      console.error(`❌ [Background Test Email Error] recipient: ${recipient}, error:`, err.message);
     });
 
-    return res.status(200).json({
-      success: true,
-      message: `تم بدء إرسال البريد الإلكتروني بنجاح في الخلفية إلى (${recipient})! افحص صندوق الوارد (Inbox) خلال لحظات.`,
-      recipient,
-      timestamp: new Date().toISOString()
-    });
+    if (result.success) {
+      return res.status(200).json({
+        success: true,
+        message: `تم إرسال البريد الإلكتروني بنجاح إلى (${recipient})!`,
+        result,
+        recipient,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: `فشل إرسال البريد الإلكتروني إلى (${recipient}).`,
+        error: result.error || result.reason,
+        result,
+        recipient,
+        timestamp: new Date().toISOString()
+      });
+    }
   } catch (error) {
     console.error('خطأ في اختبار الإيميل:', error);
     return res.status(500).json({ success: false, error: error.message });
