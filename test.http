@@ -8,11 +8,20 @@
   
 # }
 
-GET https://naja7t-server.onrender.com/api/customers
-Content-Type: application/json
-
-# GET https://naja7t-server.onrender.com/api/products
+# GET https://naja7t-server.onrender.com/api/customers
 # Content-Type: application/json
+
+# GET https://naja7t-server.onrender.com/api/activation-codes
+# Content-Type: application/json
+
+# POST https://naja7t-server.onrender.com/api/activation-codes
+# Content-Type: application/json
+
+# {
+#   "code": "BEM-PACK-2024",
+#   "product_id": "BEM-PACK",
+#   "expires_at": "2027-12-31T23:59:59Z"
+# }
 
 # GET https://naja7t-server.onrender.com/api/students
 # Content-Type: application/json
@@ -29,6 +38,20 @@ Content-Type: application/json
 #     "is_active": true
 # }
 
+# GET https://naja7t-server.onrender.com/api/products
+# Content-Type: application/json
+
+# GET https://naja7t-server.onrender.com/api/admin/test-email
+# Content-Type: application/json
+
+# {
+#   "email": "oussamabvb201283@gmail.com"
+# }
+
+
+POST https://naja7t-server.onrender.com/api/customers/1/resend-email
+
+# GET https://naja7t-server.onrender.com/api/admin/my-ip
 
 # POST https://naja7t-server.onrender.com/api/admin/reset
 # Content-Type: application/json
