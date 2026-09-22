@@ -159,8 +159,13 @@ const processPurchase = async (req, res) => {
       courseId,
       fullName,
       customerName,
+      customer_name,
       phone,
+      customerPhone,
+      customer_phone,
       email,
+      customerEmail,
+      customer_email,
       ref,
       referral,
       paymentMethod = 'EDAHABIA',
@@ -188,9 +193,9 @@ const processPurchase = async (req, res) => {
     const serial_number = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
     const normalizedMethod = paymentMethod.toUpperCase();
 
-    const actualName = (fullName || customerName || '').trim();
-    const actualPhone = phone ? String(phone).trim() : '';
-    const actualEmail = email ? String(email).trim() : '';
+    const actualName = (fullName || customerName || customer_name || req.body.name || '').trim();
+    const actualPhone = (phone || customerPhone || customer_phone || req.body.mobile || '').trim();
+    const actualEmail = (email || customerEmail || customer_email || '').trim();
     const actualRef = ref || referral || '';
 
     // 2. معالجة الحالات المجانية فورياً (FREE, SADAQA, CONTEST)
@@ -218,6 +223,8 @@ const processPurchase = async (req, res) => {
           serialNumber: customer.serial_number,
           activationCode: codeStr,
           productName: dbProduct.name
+        }).then(res => {
+          console.log(`✉️ [Free Checkout Email Result] recipient: ${customer.email}, result:`, res);
         }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
       }
 
@@ -256,6 +263,7 @@ const processPurchase = async (req, res) => {
       currency: 'dzd',
       title: dbProduct.name,
       priceId,
+      courseId: dbProduct.id,
       orderId: serial_number,
       customerName: actualName,
       customerEmail: actualEmail,
