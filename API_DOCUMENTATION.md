@@ -1,41 +1,68 @@
-# 📖 التوثيق النهائي المباشر والكامل لـ API منصة نجحت (Naja7t Server API v2.1)
+# 📖 التوثيق النهائي المباشر والكامل لـ API منصة نجحت (Naja7t Server API v2.5)
 
-هذا التوثيق يحتوي على شرح **جميع المسارات ونقاط النهاية (Endpoints)** بدون أي استثناء، مع تبيان نوع الطلب (HTTP Method)، الرابط، الهيدرات، جسم الطلب (JSON Request Body)، ونماذج الاستجابات (JSON Responses).
+هذا التوثيق يحتوي على شرح **جميع المسارات ونقاط النهاية (Endpoints)** بدون أي استثناء، مع تبيان نوع الطلب (HTTP Method)، الرابط، الهيدرات، جسم الطلب (JSON Request Body)، ونماذج الاستجابات (JSON Responses)، بالإضافة إلى دعم **المنتجات الرقمية (الكتب بصيغة PDF)** بجانب **الدورات التعليمية**.
 
 ---
 
 ## 📍 الفهرس الشامل
-1. [جدول المنتجات والأسعار (Products CRUD)](#1-جدول-المنتجات-والأسعار-products-crud)
-2. [جدول العملاء والعمليات (Customers CRUD)](#2-جدول-العملاء-والعمليات-customers-crud)
-3. [جدول أكواد التفعيل (Activation Codes CRUD)](#3-جدول-أكواد-التفعيل-activation-codes-crud)
-4. [جدول التلاميذ والنتائج (Students CRUD)](#4-جدول-التلاميذ-والنتائج-students-crud)
-5. [مسارات الشراء والدفع والتشفير (Purchase & Checkout API)](#5-مسارات-الشراء-والدفع-والتشفير-purchase--checkout-api)
-6. [مسارات الإدارة والتصفير (Admin Reset API)](#6-مسارات-الإدارة-والتصفير-admin-reset-api)
+1. [نظرة عامة والفرق بين الدورات والكتب](#1-نظرة-عامة-والفرق-بين-الدورات-والكتب)
+2. [جدول المنتجات والكتب (Products & Books CRUD)](#2-جدول-المنتجات-والكتب-products--books-crud)
+3. [مسار تحميل الكتب الإلكترونية الآمن (Secure Download API)](#3-مسار-تحميل-الكتب-الإلكترونية-الآمن-secure-download-api)
+4. [مسارات الشراء والدفع والتسليم (Purchase & Webhook API)](#4-مسارات-الشراء-والدفع-والتسليم-purchase--webhook-api)
+5. [جدول العملاء والعمليات وإعادة الإرسال (Customers API)](#5-جدول-العملاء-والعمليات-وإعادة-الإرسال-customers-api)
+6. [جدول أكواد التفعيل (Activation Codes CRUD)](#6-جدول-أكواد-التفعيل-activation-codes-crud)
+7. [جدول التلاميذ والنتائج (Students & Quiz API)](#7-جدول-التلاميذ-والنتائج-students--quiz-api)
+8. [مسارات الإدارة وفحص الاتصال (Admin API)](#8-مسارات-الإدارة-وفحص-الاتصال-admin-api)
 
 ---
 
-## 1. جدول المنتجات والأسعار (Products CRUD)
+## 1. نظرة عامة والفرق بين الدورات والكتب
 
-### 🟢 1.1 جلب كافة المنتجات
+يدعم سيرفر منصة نجحت نوعين من المنتجات الرقمية:
+
+| الخاصية | الدورات التعليمية (`course`) | الكتب والملفات الرقمية (`book` / `digital`) |
+| :--- | :--- | :--- |
+| **كود التفعيل (`activation_code`)** | يتم تخصيصه آلياً للزبون لتفعيل الحساب في المنصة | **لا يحتاج كود** (`null`) |
+| **رابط التحميل (`download_link`)** | غير متوفر | يتم توليده تلقائياً لتحميل ملف الـ PDF |
+| **محتوى البريد الإلكتروني** | إرسال سيريال الزبون + كود التفعيل المخصص | إرسال زر تحميل الكتاب المباشر بصيغة PDF |
+| **صفحة النجاح (Success URL)** | إظهار كود التفعيل ورابط الانتقال للدورة | إظهار زر مباشر لتحميل ملف الـ PDF |
+
+---
+
+## 2. جدول المنتجات والكتب (Products & Books CRUD)
+
+### 🟢 2.1 جلب كافة المنتجات والكتب
 - **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/products`
-- **Request Headers**: لا يوجد
-- **Request Body**: لا يوجد
+- **URL**: `/api/products`
 - **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "count": 4,
+  "count": 2,
   "data": [
     {
       "id": 1,
       "code": "BAC-MATH-2026",
       "name": "التحضير للبكالوريا - مادة الرياضيات",
-      "description": "دورة الرياضيات الشاملة",
+      "description": "دورة الرياضيات الشاملة لطلاب البكالوريا",
       "price": 4000,
+      "type": "course",
+      "file_url": null,
       "is_active": true,
-      "createdAt": "2026-09-20T22:30:00.000Z",
-      "updatedAt": "2026-09-20T22:30:00.000Z"
+      "createdAt": "2026-09-22T20:00:00.000Z",
+      "updatedAt": "2026-09-22T20:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "code": "BOOK-PHYSICS-2026",
+      "name": "كتاب ملخص الفيزياء للبكالوريا (PDF)",
+      "description": "ملخص شامل لجميع وحدات الفيزياء مع حلول التمارين",
+      "price": 1500,
+      "type": "book",
+      "file_url": "https://naja7t.com/uploads/books/physics-summary.pdf",
+      "is_active": true,
+      "createdAt": "2026-09-22T20:30:00.000Z",
+      "updatedAt": "2026-09-22T20:30:00.000Z"
     }
   ]
 }
@@ -43,20 +70,21 @@
 
 ---
 
-### 🟢 1.2 جلب منتج واحد محدد بالـ ID
+### 🟢 2.2 جلب منتج محدد بالـ ID أو الـ Code
 - **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/products/1`
-- **Request Body**: لا يوجد
+- **URL**: `/api/products/1` أو `/api/products/BOOK-PHYSICS-2026`
 - **Response (200 OK)**:
 ```json
 {
   "success": true,
   "data": {
-    "id": 1,
-    "code": "BAC-MATH-2026",
-    "name": "التحضير للبكالوريا - مادة الرياضيات",
-    "description": "دورة الرياضيات الشاملة",
-    "price": 4000,
+    "id": 2,
+    "code": "BOOK-PHYSICS-2026",
+    "name": "كتاب ملخص الفيزياء للبكالوريا (PDF)",
+    "description": "ملخص شامل",
+    "price": 1500,
+    "type": "book",
+    "file_url": "https://naja7t.com/uploads/books/physics-summary.pdf",
     "is_active": true
   }
 }
@@ -64,17 +92,30 @@
 
 ---
 
-### 🟡 1.3 إنشاء منتج وسعر جديد
+### 🟡 2.3 إنشاء منتج أو كتاب جديد
 - **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/products`
-- **Request Headers**: `Content-Type: application/json`
-- **Request Body**:
+- **URL**: `/api/products`
+- **Headers**: `Content-Type: application/json`
+- **Request Body (لدورة تعليمية)**:
 ```json
 {
-  "code": "BAC-ENGLISH-2026",
-  "name": "دورة اللغة الإنجليزية للبكالوريا",
-  "description": "شاملة للجهة النظرية والتطبيقية",
-  "price": 3000,
+  "code": "BAC-MATH-ADV",
+  "name": "دورة الرياضيات المتقدمة",
+  "description": "شرح وحلول تمارين نموذجية",
+  "price": 3500,
+  "type": "course",
+  "is_active": true
+}
+```
+- **Request Body (لكتاب إلكتروني PDF)**:
+```json
+{
+  "code": "BOOK-MATH-2026",
+  "name": "كتاب المراجعة النهائية في الرياضيات (PDF)",
+  "description": "كتاب إلكتروني يحتوي على 100 مسألة محلولة",
+  "price": 1200,
+  "type": "book",
+  "file_url": "https://naja7t.com/uploads/books/math-review.pdf",
   "is_active": true
 }
 ```
@@ -84,11 +125,12 @@
   "success": true,
   "message": "تم إنشاء المنتج بنجاح",
   "data": {
-    "id": 5,
-    "code": "BAC-ENGLISH-2026",
-    "name": "دورة اللغة الإنجليزية للبكالوريا",
-    "description": "شاملة للجهة النظرية والتطبيقية",
-    "price": 3000,
+    "id": 3,
+    "code": "BOOK-MATH-2026",
+    "name": "كتاب المراجعة النهائية في الرياضيات (PDF)",
+    "price": 1200,
+    "type": "book",
+    "file_url": "https://naja7t.com/uploads/books/math-review.pdf",
     "is_active": true
   }
 }
@@ -96,15 +138,14 @@
 
 ---
 
-### 🔵 1.4 تحديث منتج موجود
+### 🔵 2.4 تحديث منتج أو كتاب موجود
 - **HTTP Method**: `PUT`
-- **URL**: `http://localhost:5000/api/products/5`
-- **Request Headers**: `Content-Type: application/json`
+- **URL**: `/api/products/3`
 - **Request Body**:
 ```json
 {
-  "price": 3500,
-  "description": "تحديث الوصف والدورة الشاملة"
+  "price": 1000,
+  "file_url": "https://naja7t.com/uploads/books/math-review-v2.pdf"
 }
 ```
 - **Response (200 OK)**:
@@ -113,21 +154,18 @@
   "success": true,
   "message": "تم تحديث المنتج بنجاح",
   "data": {
-    "id": 5,
-    "code": "BAC-ENGLISH-2026",
-    "name": "دورة اللغة الإنجليزية للبكالوريا",
-    "description": "تحديث الوصف والدورة الشاملة",
-    "price": 3500,
-    "is_active": true
+    "id": 3,
+    "price": 1000,
+    "file_url": "https://naja7t.com/uploads/books/math-review-v2.pdf"
   }
 }
 ```
 
 ---
 
-### 🔴 1.5 حذف منتج
+### 🔴 2.5 حذف منتج
 - **HTTP Method**: `DELETE`
-- **URL**: `http://localhost:5000/api/products/5`
+- **URL**: `/api/products/3`
 - **Response (200 OK)**:
 ```json
 {
@@ -138,460 +176,120 @@
 
 ---
 
-## 2. جدول العملاء والعمليات (Customers CRUD)
+## 3. مسار تحميل الكتب الإلكترونية الآمن (Secure Download API)
 
-### 🟢 2.1 جلب جميع العملاء والعمليات
+هذا المسار مخصص لتحميل الكتب بصيغة PDF؛ حيث يتحقق السيرفر تلقائياً من أن الزبون قام بسداد قيمة الطلب (`paid`) قبل تسليمه الملف، لمنع تسريب الروابط للعامة:
+
+### 🟢 3.1 تحميل الكتاب بواسطة سيريال الزبون
 - **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/customers`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "count": 1,
-  "data": [
-    {
-      "id": 1,
-      "serial_number": "CUST-522121",
-      "customer_name": "محمد الأمين",
-      "phone": "0661234567",
-      "email": "student@example.com",
-      "product_id": "BAC-MATH-2026",
-      "product_name": "التحضير للبكالوريا - مادة الرياضيات",
-      "payment_method": "EDAHABIA",
-      "payment_status": "paid",
-      "activation_code": "NJ-ACT-1001-MATH"
-    }
-  ]
-}
-```
+- **URL**: `/api/products/download/:serial` (مثال: `/api/products/download/CUST-372169`)
+- **حالات الاستجابة**:
+  - **إذا كان الدفع مؤكداً والرابط خارجي**: يُرجع تحويل مباشر `302 Found` لرابط الملف الأصلي.
+  - **إذا كان الملف مخزناً محلياً على السيرفر**: يُرجع تنزيل ملف تلقائي فوري `res.download(filePath)`.
+  - **إذا لم يدفع الزبون**: يُرجع `403 Forbidden`:
+  ```json
+  { "success": false, "error": "لم يتم تأكيد دفع هذا الطلب بعد" }
+  ```
+  - **إذا كان السيريال غير موجود**: يُرجع `404 Not Found`:
+  ```json
+  { "success": false, "error": "رقم السيريال غير صحيح أو غير موجود" }
+  ```
 
 ---
 
-### 🟢 2.2 جلب عميل محدد بالـ ID أو بالرقم التسلسلي الفريد
-- **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/customers/CUST-522121`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "serial_number": "CUST-522121",
-    "customer_name": "محمد الأمين",
-    "payment_status": "paid"
-  }
-}
-```
+## 4. مسارات الشراء والدفع والتسليم (Purchase & Webhook API)
 
----
-
-### 🟡 2.3 إنشاء سجل عميل جديد يدوي
+### 🟡 4.1 بدء الشراء وتوليد رابط الدفع (Checkout)
 - **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/customers`
+- **URL**: `/api/purchase/checkout`
+- **Headers**: `Content-Type: application/json`
 - **Request Body**:
 ```json
 {
-  "customer_name": "ياسين التلمساني",
-  "phone": "0550112233",
-  "email": "yassine@example.com",
-  "product_id": "BAC-PHYSICS-2026",
-  "product_name": "التحضير للبكالوريا - مادة الفيزياء",
-  "payment_method": "CASH",
-  "payment_status": "paid",
-  "activation_code": "NJ-ACT-1002-PHYS"
+  "courseId": 2,
+  "fullName": "أسامة بن علي",
+  "phone": "0555123456",
+  "email": "oussamabvb201283@gmail.com",
+  "paymentMethod": "EDAHABIA",
+  "ref": "AFFILIATE-2026",
+  "successUrl": "https://naja7t.com/payment/success",
+  "failureUrl": "https://naja7t.com/payment/failure"
 }
 ```
-- **Response (201 Created)**:
+*(ملاحظة: يمكنك إرسال `paymentMethod: "FREE"` لتفعيل الشراء المجاني أو التجريبي الفوري).*
+- **Response (201 Created للدفع الإلكتروني)**:
 ```json
 {
   "success": true,
-  "message": "تم إضافة العميل بنجاح",
-  "data": {
-    "id": 2,
-    "serial_number": "CUST-994821",
-    "customer_name": "ياسين التلمساني",
-    "payment_method": "CASH"
-  }
+  "message": "تم إنشاء رابط الدفع بنجاح.",
+  "checkoutUrl": "https://pay.chargily.com/test/checkout/chk_01h...",
+  "serialNumber": "CUST-884192"
+}
+```
+- **Response (201 Created للدفع المجاني/التجريبي)**:
+```json
+{
+  "success": true,
+  "message": "تم تأكيد طلبك بنجاح! سيريال العميل: CUST-884192 | رابط التحميل جاهز.",
+  "serialNumber": "CUST-884192",
+  "activationCode": null,
+  "downloadLink": "https://naja7t.com/api/products/download/CUST-884192",
+  "productType": "book",
+  "redirectUrl": "https://naja7t.com/payment/success?token=eyJhbGciOi...",
+  "data": { ... }
 }
 ```
 
 ---
 
-### 🔵 2.4 تحديث بيانات عميل
-- **HTTP Method**: `PUT`
-- **URL**: `http://localhost:5000/api/customers/2`
-- **Request Body**:
-```json
-{
-  "payment_status": "paid",
-  "activation_code": "NJ-ACT-CUSTOM-99"
-}
-```
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "تم تحديث العميل بنجاح",
-  "data": {
-    "id": 2,
-    "payment_status": "paid",
-    "activation_code": "NJ-ACT-CUSTOM-99"
-  }
-}
-```
-
----
-
-### 🔴 2.5 حذف عميل
-- **HTTP Method**: `DELETE`
-- **URL**: `http://localhost:5000/api/customers/2`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "تم حذف العميل بنجاح"
-}
-```
-
----
-
-## 3. جدول أكواد التفعيل (Activation Codes CRUD & Expiration)
-
-### 🟢 3.1 جلب كافة أكواد التفعيل والإحصائيات
-- **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/activation-codes` *(تصفية اختيارية: `?status=unused` أو `?status=expired` أو `?search=NJ`)*
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "count": 4,
-  "stats": {
-    "total": 4,
-    "unused": 2,
-    "used": 1,
-    "expired": 1
-  },
-  "data": [
-    {
-      "id": 1,
-      "code": "NJ-ACT-1001-MATH",
-      "status": "unused",
-      "expires_at": "2026-12-31T23:59:59.000Z",
-      "product_id": "BAC-MATH-2026",
-      "used_by_customer_id": null
-    }
-  ]
-}
-```
-
----
-
-### 🟢 3.2 فحص والتحقق من صحة كود التفعيل
-- **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/activation-codes/validate/NJ-ACT-1001-MATH`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "valid": true,
-  "message": "كود التفعيل صالح وغير مستعمل",
-  "data": {
-    "code": "NJ-ACT-1001-MATH",
-    "status": "unused",
-    "expires_at": "2026-12-31T23:59:59.000Z"
-  }
-}
-```
-- **في حال كان الكود منتهي الصلاحية (400 Bad Request):**
-```json
-{
-  "success": false,
-  "valid": false,
-  "error": "كود التفعيل منتهي الصلاحية وغير صالح للاستخدام"
-}
-```
-
----
-
-### 🟡 3.3 إضافة كود تفعيل مخصص وتحديد تاريخ الصلاحية
+### 📩 4.2 استقبال إشعار الدفع من Chargily Pay (Webhook)
 - **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/activation-codes`
-- **Request Body**:
-```json
-{
-  "code": "NAJA7T-PASS-2026",
-  "product_id": "BAC-MATH-2026",
-  "expires_at": "2026-12-31T23:59:59Z"
-}
-```
-- **Response (201 Created)**:
-```json
-{
-  "success": true,
-  "message": "تم إضافة كود التفعيل بنجاح",
-  "data": {
-    "id": 5,
-    "code": "NAJA7T-PASS-2026",
-    "status": "unused",
-    "expires_at": "2026-12-31T23:59:59.000Z"
-  }
-}
-```
-
----
-
-### 🔵 3.4 تعديل كود تفعيل وحالته وتاريخ صلاحيته
-- **HTTP Method**: `PUT`
-- **URL**: `http://localhost:5000/api/activation-codes/5`
-- **Request Body**:
-```json
-{
-  "status": "expired",
-  "expires_at": "2026-09-01T00:00:00Z"
-}
-```
+- **URL**: `/api/purchase/webhook/chargily`
+- **Headers**: `chargily-signature: <signature>`
+- **ماذا يفعل السيرفر تلقائياً عند استلام الدفع**:
+  1. التحقق من التوقيع الرقمي (`verifyChargilyWebhookSignature`).
+  2. إنشاء سجل الزبون في قاعدة البيانات بحالة `paid`.
+  3. **إذا كان المنتج كتاباً (`book`)**: ينشئ رابط التحميل `download_link` ويرسل إيميل تحميل PDF مع زر التحميل المباشر.
+  4. **إذا كان المنتج دورة (`course`)**: يسحب كود تفعيل `unused` ويربطه بالزبون ويرسل إيميل كود التفعيل.
 - **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "message": "تم تحديث كود التفعيل بنجاح",
+  "message": "تم استقبال ومعالجة إشعار الدفع بنجاح.",
   "data": {
-    "id": 5,
-    "code": "NAJA7T-PASS-2026",
-    "status": "expired",
-    "expires_at": "2026-09-01T00:00:00.000Z"
+    "serialNumber": "CUST-372169",
+    "activationCode": null,
+    "downloadLink": "https://naja7t.com/api/products/download/CUST-372169",
+    "productType": "book",
+    "customerName": "أسامة بن علي",
+    "paymentStatus": "paid",
+    "message": "تم تأكيد عملية الشراء بنجاح! سيريال العميل: CUST-372169 | رابط تحميل الكتاب جاهز."
   }
 }
 ```
 
 ---
 
-### 🟡 3.5 توليد أكواد تفعيل عشوائية فريدة دفعة واحدة (Bulk Generate)
+### 🔓 4.3 فك تشفير توكين صفحة النجاح (Decrypt Success Token)
 - **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/activation-codes/generate`
+- **URL**: `/api/purchase/decrypt-success`
 - **Request Body**:
 ```json
 {
-  "count": 10,
-  "product_id": "BAC-MATH-2026",
-  "expires_at": "2026-12-31T23:59:59Z"
-}
-```
-- **Response (201 Created)**:
-```json
-{
-  "success": true,
-  "message": "تم توليد 10 كود تفعيل فريد بنجاح!",
-  "data": [
-    { "id": 6, "code": "NJ-8F1A-9C32", "status": "unused", "expires_at": "2026-12-31T23:59:59.000Z" }
-  ]
-}
-```
-
----
-
-### 🔴 3.6 حذف كود تفعيل
-- **HTTP Method**: `DELETE`
-- **URL**: `http://localhost:5000/api/activation-codes/5`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "تم حذف كود التفعيل بنجاح"
-}
-```
-
----
-
-## 4. جدول التلاميذ والنتائج (Students CRUD)
-
-### 🟢 4.1 جلب كافة التلاميذ وإجابات الكويزات
-- **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/students`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "count": 1,
-  "data": [
-    {
-      "id": 1,
-      "serial_number": "STU-511201",
-      "student_name": "إكرام الجزائري",
-      "phone": "0550112233",
-      "activation_code": "NJ-ACT-1001-MATH",
-      "quiz_name": "امتحان البكالوريا التجريبي - مادة الرياضيات",
-      "answers": {
-        "q1": "الخيار أ",
-        "q2": "الخيار ج",
-        "essay": "النهاية تساوي زائد ما لا نهاية"
-      },
-      "score": 18.5
-    }
-  ]
-}
-```
-
----
-
-### 🟢 4.2 جلب تلميذ محدد بالـ ID أو الرقم التسلسلي STU-XXXXXX
-- **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/students/STU-511201`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "serial_number": "STU-511201",
-    "student_name": "إكرام الجزائري",
-    "score": 18.5
-  }
-}
-```
-
----
-
-### 🟡 4.3 إضافة تلميذ وتسجيل إجابات الكويز (JSON Payload)
-- **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/students`
-- **Request Body**:
-```json
-{
-  "student_name": "إكرام الجزائري",
-  "phone": "0550112233",
-  "activation_code": "NJ-ACT-1001-MATH",
-  "quiz_name": "امتحان البكالوريا التجريبي - مادة الرياضيات",
-  "answers": {
-    "q1": "الخيار أ",
-    "q2": "الخيار ج",
-    "essay": "النهاية تساوي زائد ما لا نهاية بناء على دراسة التغيرات"
-  },
-  "score": 18.5
-}
-```
-- **Response (201 Created)**:
-```json
-{
-  "success": true,
-  "message": "تم تسجل بيانات التلميذ وإجابات الكويز بنجاح!",
-  "data": {
-    "id": 1,
-    "serial_number": "STU-511201",
-    "student_name": "إكرام الجزائري",
-    "activation_code": "NJ-ACT-1001-MATH",
-    "quiz_name": "امتحان البكالوريا التجريبي - مادة الرياضيات",
-    "score": 18.5
-  }
-}
-```
-
----
-
-### 🔵 4.4 تحديث سجل تلميذ أو تعديل النتيجة
-- **HTTP Method**: `PUT`
-- **URL**: `http://localhost:5000/api/students/1`
-- **Request Body**:
-```json
-{
-  "score": 19.5
+  "token": "eyJhbGciOi..."
 }
 ```
 - **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "message": "تم تحديث سجل التلميذ بنجاح",
   "data": {
-    "id": 1,
-    "score": 19.5
-  }
-}
-```
-
----
-
-### 🔴 4.5 حذف سجل تلميذ
-- **HTTP Method**: `DELETE`
-- **URL**: `http://localhost:5000/api/students/1`
-- **Response (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "تم حذف سجل التلميذ بنجاح"
-}
-```
-
----
-
-## 5. مسارات الشراء والدفع والتشفير (Purchase & Checkout API)
-
-### 💳 5.1 معالجة طلب الشراء
-- **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/purchase/checkout`
-- **Request Body (Chargily Pay):**
-```json
-{
-  "courseId": "BAC-MATH-2026",
-  "fullName": "محمد الأمين",
-  "email": "student@example.com",
-  "paymentMethod": "EDAHABIA"
-}
-```
-- **Response (201 Created):**
-```json
-{
-  "success": true,
-  "message": "تم إنشاء طلب الشراء بنجاح، يرجى التوجه لرابط الدفع للإتمام.",
-  "checkoutUrl": "https://pay.chargily.com/test/checkout/chk_12345",
-  "data": {
-    "serial_number": "CUST-522121",
-    "payment_status": "pending"
-  }
-}
-```
-
-- **Request Body (مجاناً FREE):**
-```json
-{
-  "courseId": "BAC-MATH-2026",
-  "fullName": "محمد الأمين",
-  "paymentMethod": "FREE"
-}
-```
-- **Response (201 Created):**
-```json
-{
-  "success": true,
-  "message": "تم تفعيل الطلب بنجاح مجاناً!",
-  "redirectUrl": "https://naja7t.com/payment/success?data=MmU1ZjAwNTEx...",
-  "data": {
-    "serial_number": "CUST-522121",
-    "activation_code": "NJ-ACT-1001-MATH"
-  }
-}
-```
-
----
-
-### 🔓 5.2 فك تشفير توكين صفحة النجاح (AES-256)
-- **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/purchase/decrypt-success`
-- **Request Body:**
-```json
-{
-  "token": "MmU1ZjAwNTExMTM4MDVjMDdhNjAyODc6..."
-}
-```
-- **Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "orderId": "CUST-522121",
-    "customerName": "محمد الأمين",
-    "activationCode": "NJ-ACT-1001-MATH",
-    "paymentMethod": "FREE",
+    "orderId": "CUST-372169",
+    "serialNumber": "CUST-372169",
+    "customerName": "أسامة بن علي",
+    "activationCode": null,
+    "downloadLink": "https://naja7t.com/api/products/download/CUST-372169",
+    "productType": "book",
     "status": "paid"
   }
 }
@@ -599,31 +297,210 @@
 
 ---
 
-## 6. مسارات الإدارة والتصفير (Admin Reset API)
+## 5. جدول العملاء والعمليات وإعادة الإرسال (Customers API)
 
-### 🔄 6.1 تصفير وتفريغ قاعدة البيانات أو جداول محددة
-- **HTTP Method**: `POST`
-- **URL**: `http://localhost:5000/api/admin/reset`
-
-#### أ) تصفير وتفريغ الكل مع إعادة بذر البيانات الأولية:
-- **Request Body:**
-```json
-{
-  "target": "all",
-  "seed": true
-}
-```
-- **Response (200 OK):**
+### 🟢 5.1 جلب كافة العملاء والمبيعات
+- **HTTP Method**: `GET`
+- **URL**: `/api/customers`
+- **Response (200 OK)**:
 ```json
 {
   "success": true,
-  "message": "تم تصفير وتفريغ جميع جداول قاعدة البيانات بالكامل! وتم بذر البيانات الأولية للدورات والأكواد مجدداً.",
-  "target": "all"
+  "count": 1,
+  "data": [
+    {
+      "id": 1,
+      "serial_number": "CUST-372169",
+      "customer_name": "أسامة بن علي",
+      "phone": "0555123456",
+      "email": "oussamabvb201283@gmail.com",
+      "ref": "AFFILIATE-2026",
+      "product_id": "2",
+      "product_name": "كتاب ملخص الفيزياء للبكالوريا (PDF)",
+      "payment_method": "EDAHABIA",
+      "payment_status": "paid",
+      "activation_code": null,
+      "download_link": "https://naja7t.com/api/products/download/CUST-372169",
+      "createdAt": "2026-09-23T00:15:00.000Z"
+    }
+  ]
 }
 ```
 
-#### ب) تصفير جدول محدد فقط:
-- **تفريغ العملاء فقط**: `{ "target": "customers" }`
-- **تفريغ أكواد التفعيل فقط**: `{ "target": "activation_codes" }`
-- **تفريغ الكويزات فقط**: `{ "target": "students" }`
-- **تفريغ المنتجات والأسعار فقط**: `{ "target": "products" }`
+---
+
+### 🟢 5.2 جلب عميل محدد
+- **HTTP Method**: `GET`
+- **URL**: `/api/customers/1` أو `/api/customers/CUST-372169`
+
+---
+
+### ✉️ 5.3 إعادة إرسال بريد التأكيد للعميل (Manual Resend Email)
+تتيح لك إعادة إرسال البريد الإلكتروني لأي مشتري بضغطة واحدة:
+- **HTTP Method**: `POST`
+- **URL**: `/api/customers/:id/resend-email` (مثال: `/api/customers/1/resend-email` أو `/api/customers/CUST-372169/resend-email`)
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "تم إرسال بريد التأكيد بنجاح إلى (oussamabvb201283@gmail.com)!",
+  "serialNumber": "CUST-372169",
+  "activationCode": null,
+  "downloadUrl": "https://naja7t.com/api/products/download/CUST-372169",
+  "result": {
+    "success": true,
+    "messageId": "<5c428364-c918-cb26-eace-3e6c83558014@gmail.com>",
+    "port": 465
+  }
+}
+```
+
+---
+
+## 6. جدول أكواد التفعيل (Activation Codes CRUD)
+
+*(مخصص للدورات التعليمية فقط)*
+
+### 🟢 6.1 جلب كافة الأكواد والإحصائيات
+- **HTTP Method**: `GET`
+- **URL**: `/api/activation-codes`
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "count": 10,
+  "stats": {
+    "total": 10,
+    "unused": 6,
+    "used": 4,
+    "expired": 0
+  },
+  "data": [
+    {
+      "id": 1,
+      "code": "ACT-88412",
+      "status": "unused",
+      "expires_at": null,
+      "product_id": "1",
+      "used_by_customer_id": null,
+      "used_at": null
+    }
+  ]
+}
+```
+
+---
+
+### 🟡 6.2 إضافة كود تفعيل جديد
+- **HTTP Method**: `POST`
+- **URL**: `/api/activation-codes`
+- **Request Body**:
+```json
+{
+  "code": "NJ-MATH-2026-VIP",
+  "product_id": "1",
+  "expires_at": "2026-12-31T23:59:59.000Z"
+}
+```
+
+---
+
+### 🔍 6.3 فحص وتفعيل كود في تطبيق/منصة التلميذ
+- **HTTP Method**: `POST`
+- **URL**: `/api/activation-codes/verify`
+- **Request Body**:
+```json
+{
+  "code": "ACT-88412"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "الكود صالح ومفعل بنجاح!",
+  "data": {
+    "code": "ACT-88412",
+    "status": "used",
+    "productId": "1"
+  }
+}
+```
+
+---
+
+## 7. جدول التلاميذ والنتائج (Students & Quiz API)
+
+### 🟢 7.1 جلب كافة التلاميذ والنتائج
+- **HTTP Method**: `GET`
+- **URL**: `/api/students`
+
+### 🟡 7.2 تسجيل إجابة كويز جديدة
+- **HTTP Method**: `POST`
+- **URL**: `/api/students`
+- **Request Body**:
+```json
+{
+  "serial_number": "CUST-372169",
+  "student_name": "أسامة بن علي",
+  "phone": "0555123456",
+  "activation_code": "ACT-88412",
+  "quiz_name": "اختبار الرياضيات - الوحدة الأولى",
+  "score": 19.5,
+  "answers": {
+    "q1": "A",
+    "q2": "C"
+  }
+}
+```
+
+---
+
+## 8. مسارات الإدارة وفحص الاتصال (Admin API)
+
+### ✉️ 8.1 اختبار إرسال بريد إلكتروني تجريبي (Gmail / SMTP)
+- **HTTP Method**: `GET` أو `POST`
+- **URL**: `/api/admin/test-email?email=oussamabvb201283@gmail.com`
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "تم إرسال البريد الإلكتروني بنجاح إلى (oussamabvb201283@gmail.com)!",
+  "result": {
+    "success": true,
+    "messageId": "<...>",
+    "port": 465
+  },
+  "recipient": "oussamabvb201283@gmail.com"
+}
+```
+
+---
+
+### 🌐 8.2 جلب عنوان IP الخارجي للسيرفر
+- **HTTP Method**: `GET`
+- **URL**: `/api/admin/my-ip`
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "ip": "213.179.x.x",
+  "message": "الـ IP الحالي الخارجي لسيرفرك هو: 213.179.x.x"
+}
+```
+
+---
+
+### ⚠️ 8.3 تصفير قاعدة البيانات والجداول
+- **HTTP Method**: `POST`
+- **URL**: `/api/admin/reset`
+- **Request Body**:
+```json
+{
+  "target": "all" 
+}
+```
+*(الخيارات المتاحة لـ target: `all` أو `customers` أو `activation_codes` أو `students` أو `products`).*
+
+---
+جميع الحقوق محفوظة © 2026 منصة نجحت التعليمية (Naja7t API Server)

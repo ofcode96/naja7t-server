@@ -58,19 +58,45 @@ async function initDatabase() {
     require('../models');
     await sequelize.sync();
 
-    // فحص وإضافة أي أعمدة مفقودة في SQLite تلقائياً مثل expires_at
+    // فحص وإضافة أي أعمدة مفقودة في SQLite تلقائياً
     if (sequelize.getDialect() === 'sqlite') {
       try {
-        const [results] = await sequelize.query("PRAGMA table_info('activation_codes');");
-        if (results && results.length > 0) {
-          const hasExpiresAt = results.some(col => col.name === 'expires_at');
+        // 1. activation_codes.expires_at
+        const [actResults] = await sequelize.query("PRAGMA table_info('activation_codes');");
+        if (actResults && actResults.length > 0) {
+          const hasExpiresAt = actResults.some(col => col.name === 'expires_at');
           if (!hasExpiresAt) {
             await sequelize.query("ALTER TABLE `activation_codes` ADD COLUMN `expires_at` DATETIME NULL;");
-            console.log('✅ تم إضافة عمود expires_at المفقود في جدول activation_codes بنجاح!');
+            console.log('✅ تم إضافة عمود expires_at في جدول activation_codes بنجاح!');
+          }
+        }
+
+        // 2. products.type & products.file_url
+        const [prodResults] = await sequelize.query("PRAGMA table_info('products');");
+        if (prodResults && prodResults.length > 0) {
+          const hasType = prodResults.some(col => col.name === 'type');
+          if (!hasType) {
+            await sequelize.query("ALTER TABLE `products` ADD COLUMN `type` VARCHAR(50) DEFAULT 'course';");
+            console.log('✅ تم إضافة عمود type في جدول products بنجاح!');
+          }
+          const hasFileUrl = prodResults.some(col => col.name === 'file_url');
+          if (!hasFileUrl) {
+            await sequelize.query("ALTER TABLE `products` ADD COLUMN `file_url` VARCHAR(255) NULL;");
+            console.log('✅ تم إضافة عمود file_url في جدول products بنجاح!');
+          }
+        }
+
+        // 3. customers.download_link
+        const [custResults] = await sequelize.query("PRAGMA table_info('customers');");
+        if (custResults && custResults.length > 0) {
+          const hasDownloadLink = custResults.some(col => col.name === 'download_link');
+          if (!hasDownloadLink) {
+            await sequelize.query("ALTER TABLE `customers` ADD COLUMN `download_link` VARCHAR(255) NULL;");
+            console.log('✅ تم إضافة عمود download_link في جدول customers بنجاح!');
           }
         }
       } catch (colErr) {
-        console.warn('⚠️ فحص عمود expires_at في SQLite:', colErr.message);
+        console.warn('⚠️ فحص أعمدة SQLite التلقائية:', colErr.message);
       }
     }
 

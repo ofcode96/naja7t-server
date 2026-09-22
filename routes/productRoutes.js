@@ -5,10 +5,12 @@ const {
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  downloadProductFile
 } = require('../controllers/productController');
 
 router.get('/', getAllProducts);
+router.get('/download/:serial', downloadProductFile);
 router.get('/:id', getProductById);
 router.post('/', createProduct);
 router.put('/:id', updateProduct);

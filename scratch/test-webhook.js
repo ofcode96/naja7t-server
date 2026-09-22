@@ -1,52 +1,44 @@
-const { Product, Customer, ActivationCode } = require('../models');
+const { Product, Customer } = require('../models');
 const { initDatabase } = require('../config/db');
 
-async function testFullFlow() {
+async function testBookPurchaseFlow() {
   await initDatabase();
   console.log('--- 1. Database Synced ---');
 
-  // Create Product
-  const prod = await Product.create({
-    code: 'BEM-PACK-' + Date.now(),
-    name: 'باقة نجحت المتكاملة',
-    price: 2900,
-    is_active: true
+  // Create Book Product
+  const book = await Product.create({
+    code: 'BOOK-MATH-' + Date.now(),
+    name: 'كتاب الرياضيات الشامل للبكالوريا (PDF)',
+    price: 1500,
+    is_active: true,
+    type: 'book',
+    file_url: 'https://naja7t.com/downloads/sample-book.pdf'
   });
-  console.log('--- 2. Product Created:', prod.id, prod.name);
-
-  // Create Activation Code
-  await ActivationCode.create({
-    code: 'ACT-' + Math.floor(10000 + Math.random() * 90000),
-    status: 'unused',
-    product_id: String(prod.id)
-  });
-  console.log('--- 3. Activation Code Created ---');
+  console.log('--- 2. Book Product Created:', book.id, book.name, 'Type:', book.type);
 
   const app = require('../server');
-  // Wait 1 second for server to initialize
   await new Promise(r => setTimeout(r, 1000));
 
   try {
     const orderId = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Simulate Chargily Webhook Call directly to localhost:5000
+    // Simulate Chargily Webhook Call for Book Purchase
     const webhookPayload = JSON.stringify({
-      id: 'evt_123456',
+      id: 'evt_book_123',
       type: 'checkout.paid',
       data: {
-        id: 'chk_test_123',
+        id: 'chk_book_123',
         payment_method: 'edahabia',
         customer: {
-          name: 'أسامة - تجربة شراء حقيقية',
+          name: 'أسامة - تجربة شراء كتاب',
           email: 'oussamabvb201283@gmail.com',
-          phone: '0555123456'
+          phone: '0555987654'
         },
         metadata: {
           order_id: orderId,
-          course_id: String(prod.id),
-          course_name: prod.name,
-          customer_email: 'oussamabvb201283@gmail.com',
-          ref: 'AFFILIATE-N2026'
+          course_id: String(book.id),
+          course_name: book.name,
+          customer_email: 'oussamabvb201283@gmail.com'
         }
       }
     });
@@ -60,19 +52,19 @@ async function testFullFlow() {
       body: webhookPayload
     });
 
-    console.log('--- 4. Webhook Status:', webhookRes.status, await webhookRes.text());
+    const webhookData = await webhookRes.json();
+    console.log('--- 3. Webhook Status:', webhookRes.status, webhookData);
 
     // Check customer in DB
     const customer = await Customer.findOne({ where: { serial_number: orderId } });
     if (customer) {
-      console.log('✅ CUSTOMER RECORD SAVED IN DB:', {
+      console.log('✅ CUSTOMER BOOK RECORD SAVED IN DB:', {
         serial: customer.serial_number,
         email: customer.email,
-        activation_code: customer.activation_code,
+        activation_code: customer.activation_code, // Should be null!
+        download_link: customer.download_link,     // Should have download URL!
         status: customer.payment_status
       });
-    } else {
-      console.error('❌ CUSTOMER NOT SAVED!');
     }
 
   } catch (err) {
@@ -82,4 +74,4 @@ async function testFullFlow() {
   }
 }
 
-testFullFlow();
+testBookPurchaseFlow();

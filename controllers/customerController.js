@@ -200,7 +200,16 @@ const processPurchase = async (req, res) => {
 
     // 2. معالجة الحالات المجانية فورياً (FREE, SADAQA, CONTEST)
     if (['FREE', 'SADAQA', 'CONTEST'].includes(normalizedMethod)) {
-      const codeStr = await assignValidActivationCode(serial_number, dbProduct.id);
+      const isBook = dbProduct.type === 'book' || dbProduct.type === 'digital';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://naja7t.com';
+      let codeStr = null;
+      let downloadLink = null;
+
+      if (isBook) {
+        downloadLink = `${frontendUrl}/api/products/download/${serial_number}`;
+      } else {
+        codeStr = await assignValidActivationCode(serial_number, dbProduct.id);
+      }
 
       const customer = await Customer.create({
         serial_number,
@@ -212,7 +221,8 @@ const processPurchase = async (req, res) => {
         product_name: dbProduct.name,
         payment_method: normalizedMethod,
         payment_status: 'paid',
-        activation_code: codeStr
+        activation_code: codeStr,
+        download_link: downloadLink
       });
 
       // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
@@ -222,19 +232,25 @@ const processPurchase = async (req, res) => {
           customerName: customer.customer_name,
           serialNumber: customer.serial_number,
           activationCode: codeStr,
-          productName: dbProduct.name
+          productName: dbProduct.name,
+          productType: dbProduct.type,
+          downloadUrl: downloadLink
         }).then(res => {
           console.log(`✉️ [Free Checkout Email Result] recipient: ${customer.email}, result:`, res);
         }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
       }
 
-      const message = `تم تفعيل الطلب بنجاح! سيريال العميل: ${serial_number} | كود التفعيل: ${codeStr}`;
+      const message = isBook
+        ? `تم تأكيد طلبك بنجاح! سيريال العميل: ${serial_number} | رابط التحميل جاهز.`
+        : `تم تفعيل الطلب بنجاح! سيريال العميل: ${serial_number} | كود التفعيل: ${codeStr}`;
 
       const encryptedSuccessUrl = generateSuccessUrl(successUrl, {
         orderId: serial_number,
         serialNumber: serial_number,
         customerName: customer.customer_name,
         activationCode: codeStr,
+        downloadLink: downloadLink,
+        productType: dbProduct.type,
         paymentMethod: normalizedMethod,
         ref: actualRef,
         status: 'paid',
@@ -246,6 +262,8 @@ const processPurchase = async (req, res) => {
         message,
         serialNumber: serial_number,
         activationCode: codeStr,
+        downloadLink: downloadLink,
+        productType: dbProduct.type,
         redirectUrl: encryptedSuccessUrl,
         data: customer
       });
@@ -306,20 +324,34 @@ const resendCustomerEmail = async (req, res) => {
 
     console.log(`⏳ [Manual Resend Email] جاري إرسال البريد الإلكتروني للعميل (${customer.serial_number}) -> ${customer.email}`);
 
+    let product = null;
+    if (customer.product_id) {
+      product = isNaN(customer.product_id)
+        ? await Product.findOne({ where: { code: customer.product_id } })
+        : await Product.findByPk(customer.product_id);
+    }
+
+    const isBook = product && (product.type === 'book' || product.type === 'digital');
+    const frontendUrl = process.env.FRONTEND_URL || 'https://naja7t.com';
+    const downloadUrl = customer.download_link || (isBook ? `${frontendUrl}/api/products/download/${customer.serial_number}` : null);
+
     const emailRes = await sendPurchaseConfirmationEmail({
       toEmail: customer.email,
       customerName: customer.customer_name,
       serialNumber: customer.serial_number,
-      activationCode: customer.activation_code || 'كود غير معين',
-      productName: customer.product_name || 'دورة منصة نجحت التعليمية'
+      activationCode: customer.activation_code || null,
+      productName: customer.product_name || (product ? product.name : 'دورة منصة نجحت التعليمية'),
+      productType: product ? product.type : (isBook ? 'book' : 'course'),
+      downloadUrl: downloadUrl
     });
 
     if (emailRes.success) {
       return res.status(200).json({
         success: true,
-        message: `تم إرسال بريد التأكيد وكود التفعيل بنجاح إلى (${customer.email})!`,
+        message: `تم إرسال بريد التأكيد بنجاح إلى (${customer.email})!`,
         serialNumber: customer.serial_number,
         activationCode: customer.activation_code,
+        downloadUrl: downloadUrl,
         result: emailRes
       });
     } else {
@@ -448,12 +480,31 @@ const handleChargilyWebhook = async (req, res) => {
         customer.payment_status = 'paid';
       }
 
-      // تخصيص كود تفعيل واحد فقط غير مستعمل وغير منتهي الصلاحية
-      const codeStr = await assignValidActivationCode(serial_number, courseId);
-      customer.activation_code = codeStr;
+      // البحث عن المنتج للتحقق من نوعه (دورة أو كتاب رقمي)
+      let dbProduct = null;
+      if (courseId) {
+        dbProduct = isNaN(courseId)
+          ? await Product.findOne({ where: { code: courseId } })
+          : await Product.findByPk(courseId);
+      }
+
+      const isBook = dbProduct && (dbProduct.type === 'book' || dbProduct.type === 'digital');
+      const frontendUrl = process.env.FRONTEND_URL || 'https://naja7t.com';
+      let codeStr = null;
+      let downloadLink = null;
+
+      if (isBook) {
+        downloadLink = `${frontendUrl}/api/products/download/${serial_number}`;
+        customer.activation_code = null;
+        customer.download_link = downloadLink;
+      } else {
+        codeStr = await assignValidActivationCode(serial_number, courseId);
+        customer.activation_code = codeStr;
+        customer.download_link = null;
+      }
       await customer.save();
 
-      console.log(`📩 [Webhook Customer Saved] Name: "${customer.customer_name}", Email: "${customer.email}", Serial: "${customer.serial_number}", Code: "${codeStr}"`);
+      console.log(`📩 [Webhook Customer Saved] Type: "${dbProduct ? dbProduct.type : 'course'}", Name: "${customer.customer_name}", Email: "${customer.email}", Serial: "${customer.serial_number}", Code: "${codeStr}", Download: "${downloadLink}"`);
 
       // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
       if (customer.email) {
@@ -464,7 +515,9 @@ const handleChargilyWebhook = async (req, res) => {
             customerName: customer.customer_name,
             serialNumber: customer.serial_number,
             activationCode: codeStr,
-            productName: customer.product_name || courseName || 'دورة منصة نجحت التعليمية'
+            productName: customer.product_name || courseName || 'منتج منصة نجحت التعليمية',
+            productType: dbProduct ? dbProduct.type : 'course',
+            downloadUrl: downloadLink
           });
           console.log(`✉️ [Webhook Email Result] recipient: ${customer.email}, result:`, emailRes);
         } catch (e) {
@@ -474,16 +527,20 @@ const handleChargilyWebhook = async (req, res) => {
         console.warn(`⚠️ [Webhook Email Warning] لم يتم إرسال إيميل لـ ${customer.serial_number}: الإيميل غير متوفر في بيانات الطلب.`);
       }
 
-      const successMessage = `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | كود التفعيل: ${codeStr}`;
+      const successMessage = isBook
+        ? `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | رابط تحميل الكتاب جاهز.`
+        : `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | كود التفعيل: ${codeStr}`;
 
-      console.log(`✅ [Webhook Paid] تم تسجيل المشتري الفعلي (${customer.customer_name}) برقم سيريال (${serial_number}) وتأكيده بكود تفعيل (${codeStr}) بنجاح!`);
+      console.log(`✅ [Webhook Paid] تم تسجيل المشتري الفعلي (${customer.customer_name}) برقم سيريال (${serial_number}) بنجاح!`);
 
       return res.status(200).json({
         success: true,
-        message: 'تم استقبال ومعالجة إشعار الدفع وتعيين كود التفعيل بنجاح.',
+        message: 'تم استقبال ومعالجة إشعار الدفع بنجاح.',
         data: {
           serialNumber: customer.serial_number,
           activationCode: customer.activation_code,
+          downloadLink: customer.download_link,
+          productType: dbProduct ? dbProduct.type : 'course',
           customerName: customer.customer_name,
           paymentStatus: customer.payment_status,
           message: successMessage

@@ -36,6 +36,15 @@ const Product = sequelize.define('Product', {
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  type: {
+    type: DataTypes.ENUM('course', 'book', 'digital'),
+    defaultValue: 'course',
+    allowNull: false
+  },
+  file_url: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'products',
@@ -90,6 +99,10 @@ const Customer = sequelize.define('Customer', {
     defaultValue: 'pending'
   },
   activation_code: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  download_link: {
     type: DataTypes.STRING,
     allowNull: true
   },
