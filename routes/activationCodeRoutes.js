@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getAllActivationCodes,
   createActivationCode,
+  updateActivationCode,
   generateBulkCodes,
   validateCode,
   deleteActivationCode
@@ -11,6 +12,7 @@ const {
 router.get('/', getAllActivationCodes);
 router.get('/validate/:code', validateCode);
 router.post('/', createActivationCode);
+router.put('/:id', updateActivationCode);
 router.post('/generate', generateBulkCodes);
 router.delete('/:id', deleteActivationCode);
 

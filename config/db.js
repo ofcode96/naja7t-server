@@ -55,6 +55,7 @@ async function initDatabase() {
   try {
     await sequelize.authenticate();
     console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${sequelize.getDialect().toUpperCase()})`);
+    require('../models');
     await sequelize.sync();
     console.log('🔄 تم فحص ومزامنة الجداول بنجاح!');
     return true;

@@ -255,21 +255,28 @@
 
 ---
 
-## 3. جدول أكواد التفعيل (Activation Codes CRUD)
+## 3. جدول أكواد التفعيل (Activation Codes CRUD & Expiration)
 
-### 🟢 3.1 جلب كافة أكواد التفعيل (مع تصفية الحالات)
+### 🟢 3.1 جلب كافة أكواد التفعيل والإحصائيات
 - **HTTP Method**: `GET`
-- **URL**: `http://localhost:5000/api/activation-codes`  *(يمكنك إضافة `?status=unused` أو `?status=used`)*
+- **URL**: `http://localhost:5000/api/activation-codes` *(تصفية اختيارية: `?status=unused` أو `?status=expired` أو `?search=NJ`)*
 - **Response (200 OK)**:
 ```json
 {
   "success": true,
   "count": 4,
+  "stats": {
+    "total": 4,
+    "unused": 2,
+    "used": 1,
+    "expired": 1
+  },
   "data": [
     {
       "id": 1,
       "code": "NJ-ACT-1001-MATH",
       "status": "unused",
+      "expires_at": "2026-12-31T23:59:59.000Z",
       "product_id": "BAC-MATH-2026",
       "used_by_customer_id": null
     }
@@ -290,21 +297,31 @@
   "message": "كود التفعيل صالح وغير مستعمل",
   "data": {
     "code": "NJ-ACT-1001-MATH",
-    "status": "unused"
+    "status": "unused",
+    "expires_at": "2026-12-31T23:59:59.000Z"
   }
+}
+```
+- **في حال كان الكود منتهي الصلاحية (400 Bad Request):**
+```json
+{
+  "success": false,
+  "valid": false,
+  "error": "كود التفعيل منتهي الصلاحية وغير صالح للاستخدام"
 }
 ```
 
 ---
 
-### 🟡 3.3 إضافة كود تفعيل واحد فريد (يمنع التكرار مطلقاً)
+### 🟡 3.3 إضافة كود تفعيل مخصص وتحديد تاريخ الصلاحية
 - **HTTP Method**: `POST`
 - **URL**: `http://localhost:5000/api/activation-codes`
 - **Request Body**:
 ```json
 {
   "code": "NAJA7T-PASS-2026",
-  "product_id": "BAC-MATH-2026"
+  "product_id": "BAC-MATH-2026",
+  "expires_at": "2026-12-31T23:59:59Z"
 }
 ```
 - **Response (201 Created)**:
@@ -315,28 +332,49 @@
   "data": {
     "id": 5,
     "code": "NAJA7T-PASS-2026",
-    "status": "unused"
+    "status": "unused",
+    "expires_at": "2026-12-31T23:59:59.000Z"
   }
-}
-```
-- **في حال محاولة إدخال نفس الكود مرة أخرى (400 Bad Request):**
-```json
-{
-  "success": false,
-  "error": "كود التفعيل هذا موجود مسبقاً وغير مسموح بتكرار الأكواد!"
 }
 ```
 
 ---
 
-### 🟡 3.4 توليد أكواد تفعيل عشوائية فريدة دفعة واحدة (Bulk Generate)
+### 🔵 3.4 تعديل كود تفعيل وحالته وتاريخ صلاحيته
+- **HTTP Method**: `PUT`
+- **URL**: `http://localhost:5000/api/activation-codes/5`
+- **Request Body**:
+```json
+{
+  "status": "expired",
+  "expires_at": "2026-09-01T00:00:00Z"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "تم تحديث كود التفعيل بنجاح",
+  "data": {
+    "id": 5,
+    "code": "NAJA7T-PASS-2026",
+    "status": "expired",
+    "expires_at": "2026-09-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### 🟡 3.5 توليد أكواد تفعيل عشوائية فريدة دفعة واحدة (Bulk Generate)
 - **HTTP Method**: `POST`
 - **URL**: `http://localhost:5000/api/activation-codes/generate`
 - **Request Body**:
 ```json
 {
   "count": 10,
-  "product_id": "BAC-MATH-2026"
+  "product_id": "BAC-MATH-2026",
+  "expires_at": "2026-12-31T23:59:59Z"
 }
 ```
 - **Response (201 Created)**:
@@ -345,15 +383,14 @@
   "success": true,
   "message": "تم توليد 10 كود تفعيل فريد بنجاح!",
   "data": [
-    { "id": 6, "code": "NJ-8F1A-9C32", "status": "unused" },
-    { "id": 7, "code": "NJ-4B90-11EF", "status": "unused" }
+    { "id": 6, "code": "NJ-8F1A-9C32", "status": "unused", "expires_at": "2026-12-31T23:59:59.000Z" }
   ]
 }
 ```
 
 ---
 
-### 🔴 3.5 حذف كود تفعيل
+### 🔴 3.6 حذف كود تفعيل
 - **HTTP Method**: `DELETE`
 - **URL**: `http://localhost:5000/api/activation-codes/5`
 - **Response (200 OK)**:

@@ -1,4 +1,6 @@
 const { Customer, Product, ActivationCode } = require('../models');
+const { Op } = require('sequelize');
+const crypto = require('crypto');
 const {
   createChargilyCheckout,
   getOrCreateChargilyPriceForProduct,
@@ -6,6 +8,59 @@ const {
   verifyChargilyWebhookSignature
 } = require('../config/chargily');
 const { generateSuccessUrl } = require('../utils/encryption');
+
+/**
+ * دالة مساعدة لاختيار وتخصيص كود تفعيل واحد فقط غير مستعمل وغير منتهي الصلاحية للزبون
+ */
+const assignValidActivationCode = async (serial_number, product_id) => {
+  const now = new Date();
+
+  // جلب الأكواد غير المستعملة المخصصة للمنتج أو الأكواد العامة
+  const candidateCodes = await ActivationCode.findAll({
+    where: {
+      status: 'unused',
+      [Op.or]: [
+        { product_id: null },
+        { product_id: String(product_id || '') }
+      ]
+    },
+    order: [['id', 'ASC']]
+  });
+
+  let validCode = null;
+
+  for (const actCode of candidateCodes) {
+    if (actCode.expires_at && new Date(actCode.expires_at) < now) {
+      actCode.status = 'expired';
+      await actCode.save();
+    } else {
+      validCode = actCode;
+      break;
+    }
+  }
+
+  let codeStr = '';
+  if (validCode) {
+    validCode.status = 'used';
+    validCode.used_by_customer_id = serial_number;
+    validCode.used_at = now;
+    await validCode.save();
+    codeStr = validCode.code;
+  } else {
+    // توليد كود تفعيل صالح فريد تلقائياً عند عدم توفر أكواد مسبقة
+    const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
+    codeStr = `NJ-${randomHex.slice(0, 4)}-${randomHex.slice(4)}`;
+    await ActivationCode.create({
+      code: codeStr,
+      status: 'used',
+      product_id: product_id ? String(product_id) : null,
+      used_by_customer_id: serial_number,
+      used_at: now
+    });
+  }
+
+  return codeStr;
+};
 
 // GET /api/customers - جلب كافة العملاء المسجلين والمدفوعين
 const getAllCustomers = async (req, res) => {
@@ -139,14 +194,7 @@ const processPurchase = async (req, res) => {
 
     // 2. معالجة الحالات المجانية فورياً (FREE, SADAQA, CONTEST)
     if (['FREE', 'SADAQA', 'CONTEST'].includes(normalizedMethod)) {
-      let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
-      let codeStr = actCode ? actCode.code : `FREE-${Math.floor(10000 + Math.random() * 90000)}`;
-
-      if (actCode) {
-        actCode.status = 'used';
-        actCode.used_at = new Date();
-        await actCode.save();
-      }
+      const codeStr = await assignValidActivationCode(serial_number, dbProduct.id);
 
       const customer = await Customer.create({
         serial_number,
@@ -161,18 +209,24 @@ const processPurchase = async (req, res) => {
         activation_code: codeStr
       });
 
+      const message = `تم تفعيل الطلب بنجاح! سيريال العميل: ${serial_number} | كود التفعيل: ${codeStr}`;
+
       const encryptedSuccessUrl = generateSuccessUrl(successUrl, {
         orderId: serial_number,
+        serialNumber: serial_number,
         customerName: customer.customer_name,
         activationCode: codeStr,
         paymentMethod: normalizedMethod,
         ref: actualRef,
-        status: 'paid'
+        status: 'paid',
+        message
       });
 
       return res.status(201).json({
         success: true,
-        message: 'تم تفعيل الطلب بنجاح مجاناً!',
+        message,
+        serialNumber: serial_number,
+        activationCode: codeStr,
         redirectUrl: encryptedSuccessUrl,
         data: customer
       });
@@ -201,7 +255,6 @@ const processPurchase = async (req, res) => {
       paymentMethod: normalizedMethod === 'EDAHABIA' ? 'edahabia' : (normalizedMethod === 'CIB' ? 'cib' : null)
     });
 
-    // إرجاع الرابط فقط دون تدمير وحشو قاعدة البيانات بصفوف معلقة غير مدفوعة
     return res.status(201).json({
       success: true,
       message: 'تم إنشاء رابط الدفع بنجاح.',
@@ -299,21 +352,26 @@ const handleChargilyWebhook = async (req, res) => {
         customer.payment_status = 'paid';
       }
 
-      // تخصيص كود تفعيل غير مستعمل
-      let actCode = await ActivationCode.findOne({ where: { status: 'unused' } });
-      let codeStr = actCode ? actCode.code : `ACT-${Math.floor(10000 + Math.random() * 90000)}`;
-
-      if (actCode) {
-        actCode.status = 'used';
-        actCode.used_by_customer_id = serial_number;
-        actCode.used_at = new Date();
-        await actCode.save();
-      }
-
+      // تخصيص كود تفعيل واحد فقط غير مستعمل وغير منتهي الصلاحية
+      const codeStr = await assignValidActivationCode(serial_number, courseId);
       customer.activation_code = codeStr;
       await customer.save();
 
-      console.log(`✅ [Webhook Paid] تم تسجيل المشتري الفعلي (${customer.customer_name}) برقم (${serial_number}) وتأكيده بكود (${codeStr}) بنجاح!`);
+      const successMessage = `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | كود التفعيل: ${codeStr}`;
+
+      console.log(`✅ [Webhook Paid] تم تسجيل المشتري الفعلي (${customer.customer_name}) برقم سيريال (${serial_number}) وتأكيده بكود تفعيل (${codeStr}) بنجاح!`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'تم استقبال ومعالجة إشعار الدفع وتعيين كود التفعيل بنجاح.',
+        data: {
+          serialNumber: customer.serial_number,
+          activationCode: customer.activation_code,
+          customerName: customer.customer_name,
+          paymentStatus: customer.payment_status,
+          message: successMessage
+        }
+      });
     }
 
     return res.status(200).send('Webhook Processed Successfully');

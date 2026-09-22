@@ -119,9 +119,13 @@ const ActivationCode = sequelize.define('ActivationCode', {
     allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('unused', 'used'),
+    type: DataTypes.ENUM('unused', 'used', 'expired'),
     defaultValue: 'unused',
     allowNull: false
+  },
+  expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   product_id: {
     type: DataTypes.STRING,
