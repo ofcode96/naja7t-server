@@ -331,10 +331,38 @@ const handleChargilyWebhook = async (req, res) => {
       const courseName = meta.course_name || null;
       const refCode = meta.ref || null;
 
-      // استخراج بيانات المشتري الفعلي الواردة في الـ Webhook من Chargily أو الـ Metadata
-      const finalName = (chargilyCust.name || chargilyCust.full_name || meta.customer_name || meta.fullName || '').trim() || 'طالب نجحت';
-      const finalEmail = (chargilyCust.email || meta.customer_email || meta.email || '').trim() || null;
-      const finalPhone = (chargilyCust.phone || chargilyCust.mobile || meta.customer_phone || meta.phone || '').trim() || null;
+      // استخراج بيانات المشتري الفعلي الواردة في الـ Webhook من كافة الكائنات المحتملة لـ Chargily
+      const finalName = (
+        chargilyCust.name ||
+        chargilyCust.full_name ||
+        checkoutData.customer_name ||
+        (checkoutData.checkout && checkoutData.checkout.customer_name) ||
+        meta.customer_name ||
+        meta.fullName ||
+        meta.name ||
+        ''
+      ).trim() || 'طالب نجحت';
+
+      const finalEmail = (
+        chargilyCust.email ||
+        checkoutData.customer_email ||
+        checkoutData.email ||
+        (checkoutData.checkout && (checkoutData.checkout.customer_email || checkoutData.checkout.email)) ||
+        meta.customer_email ||
+        meta.email ||
+        meta.customerEmail ||
+        ''
+      ).trim() || null;
+
+      const finalPhone = (
+        chargilyCust.phone ||
+        chargilyCust.mobile ||
+        checkoutData.customer_phone ||
+        (checkoutData.checkout && checkoutData.checkout.customer_phone) ||
+        meta.customer_phone ||
+        meta.phone ||
+        ''
+      ).trim() || null;
 
       const rawPaymentMethod = checkoutData.payment_method || (checkoutData.checkout && checkoutData.checkout.payment_method) || 'EDAHABIA';
       const paymentMethod = String(rawPaymentMethod).toUpperCase();
@@ -369,6 +397,8 @@ const handleChargilyWebhook = async (req, res) => {
       customer.activation_code = codeStr;
       await customer.save();
 
+      console.log(`📩 [Webhook Customer Saved] Name: "${customer.customer_name}", Email: "${customer.email}", Serial: "${customer.serial_number}", Code: "${codeStr}"`);
+
       // إرسال بريد إلكتروني آلي للزبون إن وجد بريده
       if (customer.email) {
         sendPurchaseConfirmationEmail({
@@ -378,6 +408,8 @@ const handleChargilyWebhook = async (req, res) => {
           activationCode: codeStr,
           productName: customer.product_name || courseName || 'دورة منصة نجحت التعليمية'
         }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
+      } else {
+        console.warn(`⚠️ [Webhook Email Warning] لم يتم إرسال إيميل لـ ${customer.serial_number}: الإيميل غير متوفر في بيانات الطلب.`);
       }
 
       const successMessage = `تم تأكيد عملية الشراء بنجاح! سيريال العميل: ${customer.serial_number} | كود التفعيل: ${codeStr}`;
