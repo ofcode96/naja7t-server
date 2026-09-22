@@ -219,8 +219,8 @@ const processPurchase = async (req, res) => {
  */
 const handleChargilyWebhook = async (req, res) => {
   try {
-    const signature = req.headers['chargily-signature'];
-    const rawBody = req.body;
+    const signature = req.headers['chargily-signature'] || req.headers['signature'] || req.headers['x-chargily-signature'];
+    const rawBody = req.rawBody || req.body;
 
     const isValid = verifyChargilyWebhookSignature(rawBody, signature);
     if (!isValid) {
@@ -229,10 +229,14 @@ const handleChargilyWebhook = async (req, res) => {
     }
 
     let payload;
-    try {
-      payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : JSON.parse(rawBody.toString('utf8'));
-    } catch (e) {
+    if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
       payload = req.body;
+    } else if (Buffer.isBuffer(rawBody)) {
+      payload = JSON.parse(rawBody.toString('utf8'));
+    } else if (typeof rawBody === 'string') {
+      payload = JSON.parse(rawBody);
+    } else {
+      payload = req.body || {};
     }
 
     const event = payload.type || payload.event;
@@ -240,9 +244,9 @@ const handleChargilyWebhook = async (req, res) => {
 
     console.log(`📩 استقبال إشعار Webhook من Chargily Pay: [${event}]`);
 
-    if (event === 'checkout.paid') {
-      const meta = checkoutData.metadata || {};
-      const chargilyCust = checkoutData.customer || {};
+    if (event === 'checkout.paid' || event === 'invoice.paid') {
+      const meta = checkoutData.metadata || (checkoutData.checkout && checkoutData.checkout.metadata) || {};
+      const chargilyCust = checkoutData.customer || (checkoutData.checkout && checkoutData.checkout.customer) || {};
 
       const serial_number = meta.order_id || `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
       const courseId = meta.course_id || null;
@@ -253,6 +257,9 @@ const handleChargilyWebhook = async (req, res) => {
       const finalName = (chargilyCust.name || chargilyCust.full_name || meta.customer_name || '').trim() || 'طالب نجحت';
       const finalEmail = (chargilyCust.email || meta.customer_email || '').trim() || null;
       const finalPhone = (chargilyCust.phone || meta.customer_phone || '').trim() || null;
+
+      const rawPaymentMethod = checkoutData.payment_method || (checkoutData.checkout && checkoutData.checkout.payment_method) || 'EDAHABIA';
+      const paymentMethod = String(rawPaymentMethod).toUpperCase();
 
       // فحص إن كان السجل موجوداً أو إنشائه فورياً عند الدفع الفعلي
       let customer = await Customer.findOne({ where: { serial_number } });
@@ -267,7 +274,7 @@ const handleChargilyWebhook = async (req, res) => {
           ref: refCode,
           product_id: courseId ? String(courseId) : null,
           product_name: courseName || null,
-          payment_method: checkoutData.payment_method ? String(checkoutData.payment_method).toUpperCase() : 'EDAHABIA',
+          payment_method: paymentMethod,
           payment_status: 'paid'
         });
       } else {
@@ -275,6 +282,7 @@ const handleChargilyWebhook = async (req, res) => {
         if (finalEmail) customer.email = finalEmail;
         if (finalPhone) customer.phone = finalPhone;
         if (refCode) customer.ref = refCode;
+        customer.payment_method = paymentMethod;
         customer.payment_status = 'paid';
       }
 

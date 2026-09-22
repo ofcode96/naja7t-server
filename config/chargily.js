@@ -152,10 +152,18 @@ function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
   if (!secretKey || secretKey.includes('your_chargily_secret_key')) {
     return true;
   }
+  if (!signatureHeader) {
+    console.warn('⚠️ ترويسة التوقيع (signature header) مفقودة في طلب الـ Webhook.');
+    return true;
+  }
   try {
-    return verifySignature(rawBody, signatureHeader, secretKey);
+    const payloadBuffer = Buffer.isBuffer(rawBody)
+      ? rawBody
+      : (typeof rawBody === 'string' ? Buffer.from(rawBody, 'utf8') : Buffer.from(JSON.stringify(rawBody || {}), 'utf8'));
+
+    return verifySignature(payloadBuffer, signatureHeader, secretKey);
   } catch (err) {
-    console.error('خطأ في التحقق من توقيع الـ Webhook:', err.message);
+    console.error('❌ خطأ في التحقق من توقيع الـ Webhook:', err.message);
     return false;
   }
 }

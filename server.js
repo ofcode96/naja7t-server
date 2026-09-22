@@ -18,25 +18,24 @@ const PORT = process.env.PORT || 5000;
 // Middleware الأساسية
 app.use(cors());
 
-// التقاط البايتات الخام لمسار Webhook لـ Chargily Pay
-app.use('/api/purchase/webhook/chargily', express.raw({ type: 'application/json' }));
-
-// معالجة JSON الفائقة الأمان
-app.use((req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'DELETE') {
-    req.body = req.body || {};
-    return next();
+// معالجة JSON مع حفظ البايتات الخام req.rawBody للتحقق الدقيق من التوقيع الرقمي للـ Webhook
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
   }
-
-  express.json({ limit: '10mb' })(req, res, (err) => {
-    if (err) {
-      req.body = {};
-    }
-    next();
-  });
-});
+}));
 
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// معالجة أخطاء الـ JSON غير الصحيحة لمنع توقف الخادم
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    req.body = {};
+    return next();
+  }
+  next(err);
+});
 
 // الصفحة الرئيسية وفحص سلامة السيرفر Health Check
 app.get('/', (req, res) => {
