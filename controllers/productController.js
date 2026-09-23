@@ -31,10 +31,11 @@ const getProductById = async (req, res) => {
 // POST /api/products - إضافة منتج جديد (دورة أو كتاب رقمي)
 const createProduct = async (req, res) => {
   try {
-    const { code, name, description, price, is_active, type = 'course', file_url } = req.body;
+    const { code, name, description, price, is_active, type = 'course', file_url, access_url, course_url, link } = req.body;
     if (!code || !name || price === undefined) {
       return res.status(400).json({ success: false, error: 'يرجى تقديم كود المنتج والاسم والسعر' });
     }
+    const finalAccessUrl = access_url || course_url || link || null;
     const product = await Product.create({
       code,
       name,
@@ -42,7 +43,8 @@ const createProduct = async (req, res) => {
       price,
       is_active,
       type: type || 'course',
-      file_url: file_url || null
+      file_url: file_url || null,
+      access_url: finalAccessUrl
     });
     return res.status(201).json({ success: true, message: 'تم إنشاء المنتج بنجاح', data: product });
   } catch (err) {
@@ -60,7 +62,13 @@ const updateProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({ success: false, error: 'المنتج غير موجود' });
     }
-    await product.update(req.body);
+
+    const updateData = { ...req.body };
+    if (req.body.course_url || req.body.link) {
+      updateData.access_url = req.body.access_url || req.body.course_url || req.body.link;
+    }
+
+    await product.update(updateData);
     return res.status(200).json({ success: true, message: 'تم تحديث المنتج بنجاح', data: product });
   } catch (err) {
     return res.status(400).json({ success: false, error: err.message });

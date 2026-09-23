@@ -84,6 +84,11 @@ async function initDatabase() {
             await sequelize.query("ALTER TABLE `products` ADD COLUMN `file_url` VARCHAR(255) NULL;");
             console.log('✅ تم إضافة عمود file_url في جدول products بنجاح!');
           }
+          const hasAccessUrl = prodResults.some(col => col.name === 'access_url');
+          if (!hasAccessUrl) {
+            await sequelize.query("ALTER TABLE `products` ADD COLUMN `access_url` VARCHAR(255) NULL;");
+            console.log('✅ تم إضافة عمود access_url في جدول products بنجاح!');
+          }
         }
 
         // 3. customers.download_link

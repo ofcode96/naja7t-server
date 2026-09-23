@@ -234,7 +234,8 @@ const processPurchase = async (req, res) => {
           activationCode: codeStr,
           productName: dbProduct.name,
           productType: dbProduct.type,
-          downloadUrl: downloadLink
+          downloadUrl: downloadLink,
+          accessUrl: dbProduct.access_url || dbProduct.file_url || null
         }).then(res => {
           console.log(`✉️ [Free Checkout Email Result] recipient: ${customer.email}, result:`, res);
         }).catch(e => console.warn('⚠️ تنبيه إرسال البريد:', e.message));
@@ -250,6 +251,7 @@ const processPurchase = async (req, res) => {
         customerName: customer.customer_name,
         activationCode: codeStr,
         downloadLink: downloadLink,
+        accessUrl: dbProduct.access_url || null,
         productType: dbProduct.type,
         paymentMethod: normalizedMethod,
         ref: actualRef,
@@ -263,6 +265,7 @@ const processPurchase = async (req, res) => {
         serialNumber: serial_number,
         activationCode: codeStr,
         downloadLink: downloadLink,
+        accessUrl: dbProduct.access_url || null,
         productType: dbProduct.type,
         redirectUrl: encryptedSuccessUrl,
         data: customer
@@ -342,7 +345,8 @@ const resendCustomerEmail = async (req, res) => {
       activationCode: customer.activation_code || null,
       productName: customer.product_name || (product ? product.name : 'دورة منصة نجحت التعليمية'),
       productType: product ? product.type : (isBook ? 'book' : 'course'),
-      downloadUrl: downloadUrl
+      downloadUrl: downloadUrl,
+      accessUrl: product ? (product.access_url || product.file_url || null) : null
     });
 
     if (emailRes.success) {
@@ -352,6 +356,7 @@ const resendCustomerEmail = async (req, res) => {
         serialNumber: customer.serial_number,
         activationCode: customer.activation_code,
         downloadUrl: downloadUrl,
+        accessUrl: product ? (product.access_url || product.file_url || null) : null,
         result: emailRes
       });
     } else {
@@ -517,7 +522,8 @@ const handleChargilyWebhook = async (req, res) => {
             activationCode: codeStr,
             productName: customer.product_name || courseName || 'منتج منصة نجحت التعليمية',
             productType: dbProduct ? dbProduct.type : 'course',
-            downloadUrl: downloadLink
+            downloadUrl: downloadLink,
+            accessUrl: dbProduct ? (dbProduct.access_url || dbProduct.file_url || null) : null
           });
           console.log(`✉️ [Webhook Email Result] recipient: ${customer.email}, result:`, emailRes);
         } catch (e) {
@@ -540,6 +546,7 @@ const handleChargilyWebhook = async (req, res) => {
           serialNumber: customer.serial_number,
           activationCode: customer.activation_code,
           downloadLink: customer.download_link,
+          accessUrl: dbProduct ? (dbProduct.access_url || null) : null,
           productType: dbProduct ? dbProduct.type : 'course',
           customerName: customer.customer_name,
           paymentStatus: customer.payment_status,

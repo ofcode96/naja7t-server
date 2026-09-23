@@ -45,6 +45,10 @@ const Product = sequelize.define('Product', {
   file_url: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  access_url: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'products',

@@ -128,7 +128,8 @@ async function sendPurchaseConfirmationEmail({
   activationCode,
   productName = 'دورة منصة نجحت التعليمية',
   productType = 'course',
-  downloadUrl = null
+  downloadUrl = null,
+  accessUrl = null
 }) {
   if (!toEmail || !toEmail.trim() || !toEmail.includes('@')) {
     console.log(`ℹ️ [Email Service] لم يتم إرسال بريد لـ (${serialNumber}): البريد الإلكتروني غير متوفر أو غير صالِح.`);
@@ -138,6 +139,7 @@ async function sendPurchaseConfirmationEmail({
   const frontendUrl = process.env.FRONTEND_URL || 'https://naja7t.com';
   const isBook = (productType === 'book' || productType === 'digital' || !!downloadUrl);
   const finalDownloadLink = downloadUrl || `${frontendUrl}/api/products/download/${serialNumber}`;
+  const finalAccessUrl = accessUrl || null;
 
   const emailSubject = isBook
     ? `📚 كتابك الإلكتروني جاهز للتحميل - منصة نجحت (${productName})`
@@ -159,6 +161,7 @@ async function sendPurchaseConfirmationEmail({
         .card { background: ${isBook ? '#f0f9ff' : '#f0fdf4'}; border-right: 4px solid ${isBook ? '#0284c7' : '#10b981'}; padding: 20px; margin: 20px 0; border-radius: 8px; }
         .code-box { background: #111827; color: #10b981; font-family: monospace; font-size: 22px; font-weight: bold; text-align: center; padding: 15px; border-radius: 8px; letter-spacing: 2px; margin: 20px 0; }
         .download-box { background: #f8fafc; border: 2px dashed #0284c7; padding: 25px; text-align: center; border-radius: 10px; margin: 25px 0; }
+        .access-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }
         .btn { display: inline-block; background-color: ${isBook ? '#0284c7' : '#10b981'}; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; font-size: 16px; margin-top: 10px; }
         .footer { background: #f9fafb; padding: 15px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; }
       </style>
@@ -189,9 +192,19 @@ async function sendPurchaseConfirmationEmail({
             <p style="font-weight: bold; margin-bottom: 5px;">🔑 كود التفعيل المخصص لك:</p>
             <div class="code-box">${activationCode}</div>
             <p>يمكنك استخدام هذا الكود لتفعيل اشتراكك والدخول إلى كافة دروس ومحتويات الدورة.</p>
-            <div style="text-align: center;">
-              <a href="${frontendUrl}" class="btn">الانتقال إلى المنصة والتفعيل</a>
-            </div>
+            ${finalAccessUrl ? `
+              <div class="access-box">
+                <div style="font-weight: bold; color: #1e293b; margin-bottom: 6px;">🔗 رابط الوصول المباشر لمحتوى الدورة:</div>
+                <a href="${finalAccessUrl}" style="color: #0284c7; word-break: break-all; font-weight: 600;" target="_blank">${finalAccessUrl}</a>
+              </div>
+              <div style="text-align: center; margin-top: 15px;">
+                <a href="${finalAccessUrl}" class="btn" target="_blank">🚀 الانتقال إلى الدورة ومحتواها الآن</a>
+              </div>
+            ` : `
+              <div style="text-align: center;">
+                <a href="${frontendUrl}" class="btn">الانتقال إلى المنصة والتفعيل</a>
+              </div>
+            `}
           `}
         </div>
         <div class="footer">

@@ -96,7 +96,7 @@
 - **HTTP Method**: `POST`
 - **URL**: `/api/products`
 - **Headers**: `Content-Type: application/json`
-- **Request Body (لدورة تعليمية)**:
+- **Request Body (لدورة تعليمية مع رابط الدخول المباشر)**:
 ```json
 {
   "code": "BAC-MATH-ADV",
@@ -104,9 +104,11 @@
   "description": "شرح وحلول تمارين نموذجية",
   "price": 3500,
   "type": "course",
+  "access_url": "https://naja7t.com/classrooms/bac-math-vip-2026",
   "is_active": true
 }
 ```
+*(ملاحظة: حقل `access_url` اختياري، وإذا تم تحديده سيتم إرساله كزر ورابط مباشر داخل بريد التفعيل للزبون بجانب كود التفعيل).*
 - **Request Body (لكتاب إلكتروني PDF)**:
 ```json
 {
