@@ -46,6 +46,11 @@ const createProduct = async (req, res) => {
       file_url: file_url || null,
       access_url: finalAccessUrl
     });
+
+    // تسجيل المنتج وسعره في Chargily Pay تلقائياً لمرة واحدة
+    const { syncProductWithChargily } = require('../config/chargily');
+    await syncProductWithChargily(product);
+
     return res.status(201).json({ success: true, message: 'تم إنشاء المنتج بنجاح', data: product });
   } catch (err) {
     return res.status(400).json({ success: false, error: err.message });
@@ -63,12 +68,32 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ success: false, error: 'المنتج غير موجود' });
     }
 
+    const oldPrice = product.price;
+    const oldName = product.name;
+
     const updateData = { ...req.body };
     if (req.body.course_url || req.body.link) {
       updateData.access_url = req.body.access_url || req.body.course_url || req.body.link;
     }
 
     await product.update(updateData);
+
+    // إذا تغير الاسم أو السعر، يتم التحديث في Chargily Pay دون إنشاء منتج جديد
+    const { syncProductWithChargily, chargilyClient } = require('../config/chargily');
+    if (chargilyClient && product.chargily_product_id) {
+      if (updateData.name && updateData.name !== oldName) {
+        try {
+          await chargilyClient.updateProduct(product.chargily_product_id, { name: product.name });
+          console.log(`✅ تم تحديث اسم المنتج في Chargily Pay إلى: ${product.name}`);
+        } catch (e) {
+          console.warn('⚠️ تنبيه تحديث اسم المنتج في Chargily:', e.message);
+        }
+      }
+      if (updateData.price && Number(updateData.price) !== Number(oldPrice)) {
+        await syncProductWithChargily(product, true); // forceNewPrice = true تحت نفس المنتج
+      }
+    }
+
     return res.status(200).json({ success: true, message: 'تم تحديث المنتج بنجاح', data: product });
   } catch (err) {
     return res.status(400).json({ success: false, error: err.message });

@@ -21,26 +21,37 @@ if (isConfigured) {
 }
 
 /**
- * جلب أو إنشاء السعر المربوط بالمنتج لدى Chargily Pay وحفظه في قاعدة البيانات
+ * مزامنة المنتج وسعره مع Chargily Pay لمرة واحدة بدون أي تكرار:
+ * 1. ينشئ المنتج في Chargily Pay مرة واحدة فقط ويحفظ chargily_product_id
+ * 2. ينشئ السعر المطلوب تحت نفس المنتج ويحفظ chargily_price_id
+ * 3. في حال تحديث السعر، ينشئ سعراً جديداً تحت نفس المنتج دون تكرار إنشاء المنتج
  */
-async function getOrCreateChargilyPriceForProduct(dbProduct) {
+async function syncProductWithChargily(dbProduct, forceNewPrice = false) {
   if (!chargilyClient || !dbProduct) return null;
-
-  if (dbProduct.chargily_price_id) {
-    return dbProduct.chargily_price_id;
-  }
 
   try {
     let productId = dbProduct.chargily_product_id;
+
+    // 1. إنشاء المنتج في Chargily Pay لمرة واحدة فقط
     if (!productId) {
+      console.log(`⏳ جاري تسجيل المنتج (${dbProduct.name}) في Chargily Pay لأول مرة...`);
       const chargilyProd = await chargilyClient.createProduct({
         name: dbProduct.name,
-        description: dbProduct.description || `دورة منصة نجحت - ${dbProduct.code}`,
+        description: dbProduct.description || `${dbProduct.type === 'book' ? 'كتاب' : 'دورة'} منصة نجحت - ${dbProduct.code}`,
       });
       productId = chargilyProd.id;
       dbProduct.chargily_product_id = productId;
+      await dbProduct.save();
+      console.log(`✅ تم تسجيل المنتج في Chargily Pay بنجاح! ID: ${productId}`);
     }
 
+    // 2. إذا كان السعر مسجلاً بالفعل ولم يتغير السعر، نستخدم السعر الحالي
+    if (dbProduct.chargily_price_id && !forceNewPrice) {
+      return dbProduct.chargily_price_id;
+    }
+
+    // 3. إنشاء السعر تحت نفس المنتج (دون إنشاء منتج جديد إطلاقاً)
+    console.log(`⏳ جاري إنشاء سعر (${Math.round(dbProduct.price)} دج) للمنتج (${productId}) في Chargily Pay...`);
     const chargilyPrice = await chargilyClient.createPrice({
       amount: Math.round(dbProduct.price),
       currency: 'dzd',
@@ -50,16 +61,17 @@ async function getOrCreateChargilyPriceForProduct(dbProduct) {
     dbProduct.chargily_price_id = chargilyPrice.id;
     await dbProduct.save();
 
-    console.log(`✅ تم ربط المنتج (${dbProduct.name}) لدى Chargily Pay بالسعر (${chargilyPrice.id}) بنجاح!`);
+    console.log(`✅ تم ربط السعر (${chargilyPrice.id}) بالمنتج (${dbProduct.name}) في Chargily Pay بنجاح!`);
     return chargilyPrice.id;
+
   } catch (err) {
     console.error('❌ خطأ في مزامنة منتج Chargily:', err.response ? err.response.data : err.message);
-    return null;
+    return dbProduct.chargily_price_id || null;
   }
 }
 
 /**
- * دالة إنشاء جلسة دفع لدى Chargily Pay V2 مع تمرير البيانات الشاملة في metadata
+ * دالة إنشاء جلسة دفع لدى Chargily Pay V2 باستخدام السعر المربوط بالمنتج مباشرة
  */
 async function createChargilyCheckout({
   amount,
@@ -82,22 +94,14 @@ async function createChargilyCheckout({
 
   if (chargilyClient) {
     try {
-      let finalPriceId = priceId;
-
-      if (!finalPriceId) {
-        const prod = await chargilyClient.createProduct({ name: title });
-        const price = await chargilyClient.createPrice({
-          amount: Math.round(amount || 3500),
-          currency: currency.toLowerCase(),
-          product_id: prod.id
-        });
-        finalPriceId = price.id;
+      if (!priceId) {
+        throw new Error(`تعذر بدء عملية الشراء: لا يوجد سعر مسجل لهذا المنتج لدى Chargily Pay (${title})`);
       }
 
       const checkoutPayload = {
         items: [
           {
-            price: finalPriceId,
+            price: priceId,
             quantity: 1,
           },
         ],
@@ -184,9 +188,11 @@ function verifyChargilyWebhookSignature(rawBody, signatureHeader) {
 }
 
 module.exports = {
-  getOrCreateChargilyPriceForProduct,
+  syncProductWithChargily,
+  getOrCreateChargilyPriceForProduct: syncProductWithChargily,
   createChargilyCheckout,
   getChargilyCustomer,
   verifyChargilyWebhookSignature,
-  isChargilyConfigured: () => !!chargilyClient
+  isChargilyConfigured: () => !!chargilyClient,
+  chargilyClient
 };
