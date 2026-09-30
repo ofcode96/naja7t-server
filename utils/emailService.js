@@ -83,14 +83,18 @@ async function sendViaResendApi({ toEmail, customerName, serialNumber, activatio
  * إنشاء ناقل Nodemailer تقليدي للمستضيفات المحلية أو السيرفرات التي تسمح بـ SMTP
  */
 function createTransporter(customPort = null, customSecure = null) {
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
   const port = customPort || Number(process.env.EMAIL_PORT || 587);
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
+  const rawUser = process.env.EMAIL_USER;
+  const rawPass = process.env.EMAIL_PASS;
 
-  if (!user || !pass || pass.includes('your_') || user.includes('your_')) {
+  if (!rawUser || !rawPass || rawPass.includes('your_') || rawUser.includes('your_')) {
     return null;
   }
+
+  // تنظيف البريد وكلمة المرور من أي مسافات زائدة أو علامات تنصيص قد تضاف بالخطأ في cPanel
+  const user = rawUser.trim().replace(/^['"]|['"]$/g, '');
+  const pass = rawPass.trim().replace(/^['"]|['"]$/g, '').replace(/\s+/g, '');
 
   const isGmail = (user && user.toLowerCase().includes('@gmail.com')) || (host && host.toLowerCase().includes('gmail'));
 
