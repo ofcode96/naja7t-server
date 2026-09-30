@@ -10,8 +10,10 @@ const {
 } = require('../controllers/customerController');
 
 router.get('/', getAllCustomers);
+router.get('', getAllCustomers);
 router.get('/:id', getCustomerById);
 router.post('/', createCustomerRecord);
+router.post('', createCustomerRecord);
 router.post('/:id/resend-email', resendCustomerEmail);
 router.put('/:id', updateCustomerRecord);
 router.delete('/:id', deleteCustomerRecord);

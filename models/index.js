@@ -38,7 +38,7 @@ const Product = sequelize.define('Product', {
     defaultValue: true
   },
   type: {
-    type: DataTypes.ENUM('course', 'book', 'digital'),
+    type: DataTypes.STRING(50),
     defaultValue: 'course',
     allowNull: false
   },

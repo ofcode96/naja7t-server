@@ -10,9 +10,11 @@ const {
 } = require('../controllers/productController');
 
 router.get('/', getAllProducts);
+router.get('', getAllProducts);
 router.get('/download/:serial', downloadProductFile);
 router.get('/:id', getProductById);
 router.post('/', createProduct);
+router.post('', createProduct);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
 
