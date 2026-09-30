@@ -128,15 +128,48 @@ const checkEnvironment = (req, res) => {
   const fs = require('fs');
   const path = require('path');
   const rootDir = path.resolve(__dirname, '..');
-  const envFileExists = fs.existsSync(path.join(rootDir, '.env'));
+  const envFilePath = path.join(rootDir, '.env');
+  const envFileExists = fs.existsSync(envFilePath);
+  
+  let envFileSize = 0;
+  let envFileKeys = [];
+  let envReadError = null;
+
+  if (envFileExists) {
+    try {
+      const stats = fs.statSync(envFilePath);
+      envFileSize = stats.size;
+      const rawContent = fs.readFileSync(envFilePath, 'utf8');
+      // محاولة استخراج أسماء المتغيرات الموجودة داخل ملف .env
+      const lines = rawContent.split(/\r?\n/);
+      envFileKeys = lines
+        .map(l => l.trim())
+        .filter(l => l && !l.startsWith('#') && l.includes('='))
+        .map(l => l.split('=')[0].trim());
+    } catch (err) {
+      envReadError = err.message;
+    }
+  }
+
+  // المتغيرات التي وصلت لبيئة Node.js (سواء من cPanel GUI أو من .env)
+  const appKeysInProcess = Object.keys(process.env).filter(k => 
+    k.startsWith('DB_') || k.startsWith('EMAIL_') || k.startsWith('CHARGILY_') || k.startsWith('FRONTEND_') || k === 'NODE_ENV' || k === 'PORT'
+  );
 
   return res.status(200).json({
     success: true,
     server: {
       cwd: process.cwd(),
       appDir: rootDir,
-      envFileExists: envFileExists,
-      nodeVersion: process.version
+      nodeVersion: process.version,
+      envFile: {
+        exists: envFileExists,
+        path: envFilePath,
+        sizeBytes: envFileSize,
+        keysFoundInFile: envFileKeys,
+        readError: envReadError
+      },
+      cpanelEnvKeysInProcess: appKeysInProcess
     },
     database: {
       dialect: (process.env.DB_DIALECT || 'mysql').toUpperCase(),
