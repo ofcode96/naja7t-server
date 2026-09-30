@@ -72,6 +72,9 @@ app.use(express.json({
 
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
+// تقديم الملفات العامة مثل الشعار والأصول الثابتة
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
 // معالجة أخطاء الـ JSON غير الصحيحة لمنع توقف الخادم
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {

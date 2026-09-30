@@ -149,7 +149,7 @@ async function sendPurchaseConfirmationEmail({
   }
 
   const frontendUrl = process.env.FRONTEND_URL || 'https://naja7t.com';
-  const isBook = (productType === 'book' || productType === 'digital' || !!downloadUrl);
+  const isBook = (productType === 'book' || productType === 'digital' || productType === 'ebook' || !!downloadUrl);
   const finalDownloadLink = downloadUrl || `${frontendUrl}/api/products/download/${serialNumber}`;
   const finalAccessUrl = accessUrl || null;
 
@@ -157,70 +157,296 @@ async function sendPurchaseConfirmationEmail({
     ? `📚 كتابك الإلكتروني جاهز للتحميل - منصة نجحت (${productName})`
     : `🎓 كود التفعيل وسيريال الشراء الخاص بك - منصة نجحت (${productName})`;
 
+  // التحقق من وجود ملف الشعار الرسمي لتضمينه كـ CID Attachment
+  const logoPath = path.join(__dirname, '..', 'public', 'logo.png');
+  const hasLogo = fs.existsSync(logoPath);
+  const attachments = hasLogo ? [{
+    filename: 'logo.png',
+    path: logoPath,
+    cid: 'naja7t-logo'
+  }] : [];
+
+  const logoHtml = hasLogo
+    ? `<img src="cid:naja7t-logo" alt="منصة نجحت التعليمية" style="max-height: 75px; width: auto; display: block; margin: 0 auto;" />`
+    : `<div style="font-size: 26px; font-weight: 800; color: #ff6600; text-align: center;">🎓 منصة نجحت</div>`;
+
+  // قالب البريد المخصص (RTL بالكامل وبألوان البراند الرسمية)
   const htmlContent = `
     <!DOCTYPE html>
     <html lang="ar" dir="rtl">
     <head>
       <meta charset="UTF-8">
-      <title>${isBook ? 'تحميل الكتاب الإلكتروني' : 'تأكيد وتفعيل الشراء'} - منصة نجحت</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${emailSubject}</title>
       <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; direction: rtl; text-align: right; }
-        .container { max-width: 600px; background: #ffffff; margin: 20px auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #e1e8e5; }
-        .header { background: linear-gradient(135deg, ${isBook ? '#0284c7 0%, #0369a1 100%' : '#10b981 0%, #059669 100%'}); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
-        .content { padding: 30px 25px; line-height: 1.8; }
-        .welcome { font-size: 18px; font-weight: 600; color: ${isBook ? '#0369a1' : '#065f46'}; margin-bottom: 15px; }
-        .card { background: ${isBook ? '#f0f9ff' : '#f0fdf4'}; border-right: 4px solid ${isBook ? '#0284c7' : '#10b981'}; padding: 20px; margin: 20px 0; border-radius: 8px; }
-        .code-box { background: #111827; color: #10b981; font-family: monospace; font-size: 22px; font-weight: bold; text-align: center; padding: 15px; border-radius: 8px; letter-spacing: 2px; margin: 20px 0; }
-        .download-box { background: #f8fafc; border: 2px dashed #0284c7; padding: 25px; text-align: center; border-radius: 10px; margin: 25px 0; }
-        .access-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }
-        .btn { display: inline-block; background-color: ${isBook ? '#0284c7' : '#10b981'}; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center; font-size: 16px; margin-top: 10px; }
-        .footer { background: #f9fafb; padding: 15px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, Arial, sans-serif;
+          background-color: #f1f5f9;
+          margin: 0;
+          padding: 20px 10px;
+          color: #1e293b;
+          direction: rtl;
+          text-align: right;
+        }
+        .email-wrapper {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+          border: 1px solid #e2e8f0;
+        }
+        .header-logo {
+          background-color: #ffffff;
+          padding: 25px 20px 15px 20px;
+          text-align: center;
+          border-bottom: 2px solid #f8fafc;
+        }
+        .banner {
+          background: linear-gradient(135deg, ${isBook ? '#1e40af 0%, #3b82f6 100%' : '#ea580c 0%, #ff6600 100%'});
+          color: #ffffff;
+          padding: 20px;
+          text-align: center;
+        }
+        .banner h1 {
+          margin: 0;
+          font-size: 22px;
+          font-weight: 800;
+        }
+        .banner p {
+          margin: 6px 0 0 0;
+          font-size: 14px;
+          opacity: 0.95;
+        }
+        .content {
+          padding: 30px 25px;
+          line-height: 1.8;
+        }
+        .greeting {
+          font-size: 19px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 12px;
+        }
+        .order-card {
+          background-color: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-right: 4px solid ${isBook ? '#3b82f6' : '#ff6600'};
+          border-radius: 10px;
+          padding: 18px 20px;
+          margin: 22px 0;
+        }
+        .order-card-title {
+          font-weight: 700;
+          font-size: 15px;
+          color: ${isBook ? '#1d4ed8' : '#c2410c'};
+          margin-bottom: 10px;
+        }
+        .order-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 4px 0;
+          font-size: 14px;
+        }
+        .badge {
+          display: inline-block;
+          padding: 3px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .badge-success {
+          background-color: #dcfce7;
+          color: #15803d;
+        }
+        .code-container {
+          background: #0f172a;
+          border: 2px dashed #ff6600;
+          border-radius: 12px;
+          padding: 22px;
+          text-align: center;
+          margin: 25px 0;
+        }
+        .code-title {
+          font-size: 14px;
+          color: #fed7aa;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+        .code-value {
+          font-size: 26px;
+          font-weight: 900;
+          letter-spacing: 3px;
+          color: #ff6600;
+          font-family: monospace;
+          background: #1e293b;
+          padding: 10px 20px;
+          border-radius: 8px;
+          display: inline-block;
+          margin: 6px 0;
+        }
+        .code-note {
+          font-size: 12px;
+          color: #94a3b8;
+          margin-top: 8px;
+        }
+        .download-container {
+          background: #eff6ff;
+          border: 2px solid #bfdbfe;
+          border-radius: 12px;
+          padding: 25px 20px;
+          text-align: center;
+          margin: 25px 0;
+        }
+        .download-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: #1e3a8a;
+          margin-bottom: 8px;
+        }
+        .download-desc {
+          font-size: 14px;
+          color: #475569;
+          margin: 0 0 18px 0;
+          line-height: 1.6;
+        }
+        .steps-card {
+          background-color: #fff7ed;
+          border: 1px solid #ffedd5;
+          border-radius: 10px;
+          padding: 16px 20px;
+          margin: 20px 0;
+          font-size: 14px;
+        }
+        .steps-title {
+          font-weight: 700;
+          color: #9a3412;
+          margin-bottom: 8px;
+        }
+        .step-item {
+          margin: 6px 0;
+          color: #7c2d12;
+        }
+        .btn-action {
+          display: inline-block;
+          background-color: ${isBook ? '#2563eb' : '#ff6600'};
+          color: #ffffff !important;
+          padding: 14px 32px;
+          text-decoration: none;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 16px;
+          text-align: center;
+          margin: 10px auto;
+          box-shadow: 0 4px 12px ${isBook ? 'rgba(37,99,235,0.3)' : 'rgba(255,102,0,0.3)'};
+        }
+        .footer {
+          background-color: #f8fafc;
+          padding: 20px;
+          text-align: center;
+          font-size: 13px;
+          color: #64748b;
+          border-top: 1px solid #e2e8f0;
+          line-height: 1.6;
+        }
       </style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <h1>${isBook ? '📚' : '🎓'} منصة نجحت التعليمية</h1>
-          <p style="margin: 5px 0 0 0; opacity: 0.9;">${isBook ? 'تسليم وتأكيد استلام كتابك الإلكتروني' : 'تأكيد وتفعيل تفاصيل حسابك'}</p>
+      <div class="email-wrapper">
+        <!-- شعار منصة نجحت الرسمي -->
+        <div class="header-logo">
+          ${logoHtml}
         </div>
+
+        <!-- البانر العلوي -->
+        <div class="banner">
+          <h1>${isBook ? '📚 تسليم الكتاب الإلكتروني' : '🎓 تأكيد وتفعيل الاشتراك'}</h1>
+          <p>${isBook ? 'نسختك الإلكترونية الرقمية الأصلية جاهزة للتحميل' : 'مبارك انضمامك لأسرة منصة نجحت التعليمية'}</p>
+        </div>
+
+        <!-- محتوى الرسالة -->
         <div class="content">
-          <div class="welcome">مرحباً ${customerName}،</div>
-          <p>شكراً لثقتك واقتنائك من منصة نجحت! تم تأكيد عملية الدفع وإتمام الطلب بنجاح.</p>
-          
-          <div class="card">
-            <div style="font-weight: bold; margin-bottom: 8px; color: ${isBook ? '#0369a1' : '#047857'};">📦 تفاصيل الطلب:</div>
-            <div><strong>${isBook ? 'الكتاب / المنتج الرقمي:' : 'الدورة / المنتج:'}</strong> ${productName}</div>
-            <div><strong>سيريال الزبون الخاص بك:</strong> <span style="color: ${isBook ? '#0284c7' : '#10b981'}; font-weight: bold;">${serialNumber}</span></div>
+          <div class="greeting">مرحباً ${customerName}،</div>
+          <p>
+            ${isBook
+              ? 'شكراً لاختيارك منصة نجحت التعليمية! تم تأكيد عملية الدفع بنجاح وأصبح كتابك الرقمي جاهزاً للتحميل المباشر.'
+              : 'شكراً لثقتك واشتراكك في منصة نجحت التعليمية! تم استلام وتأكيد عملية الدفع بنجاح، ويسعدنا مرافقتك في مشوار تفوقك الدراسي.'}
+          </p>
+
+          <!-- بطاقة تفاصيل الطلب -->
+          <div class="order-card">
+            <div class="order-card-title">📦 تفاصيل طلب الشراء:</div>
+            <div class="order-row">
+              <strong>${isBook ? 'الكتاب المطلوب:' : 'الدورة التدريبية:'}</strong>
+              <span>${productName}</span>
+            </div>
+            <div class="order-row">
+              <strong>رقم السيريال الخاص بك:</strong>
+              <span style="font-family: monospace; font-weight: bold; color: ${isBook ? '#2563eb' : '#ff6600'};">${serialNumber}</span>
+            </div>
+            <div class="order-row">
+              <strong>حالة العملية:</strong>
+              <span class="badge badge-success">مدفوع ومؤكد بنجاح ✅</span>
+            </div>
           </div>
 
           ${isBook ? `
-            <div class="download-box">
-              <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">📥 نسختك الإلكترونية (PDF) جاهزة الآن!</div>
-              <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">يمكنك تحميل نسختك وحفظها على هاتفك أو حاسوبك وقراءتها في أي وقت بدون إنترنت.</p>
-              <a href="${finalDownloadLink}" class="btn" target="_blank">📥 تحميل كتابك بصيغة PDF الآن</a>
+            <!-- بطاقة تحميل الكتاب الإلكتروني (بدون أي كود تفعيل) -->
+            <div class="download-container">
+              <div style="font-size: 38px; margin-bottom: 8px;">📖</div>
+              <div class="download-title">نسختك الأصلية بصيغة (PDF) جاهزة الآن!</div>
+              <p class="download-desc">
+                يمكنك تحميل الكتاب وحفظه على هاتفك الذكي أو جهازك اللوحي أو الحاسوب، والاطلاع عليه ومراجعته في أي وقت بدون إنترنت.
+              </p>
+              <div style="text-align: center; margin: 15px 0;">
+                <a href="${finalDownloadLink}" class="btn-action" target="_blank">📥 تحميل الكتاب الإلكتروني (PDF)</a>
+              </div>
+            </div>
+
+            <div class="steps-card">
+              <div class="steps-title">💡 نصيحة للقارئ:</div>
+              <div class="step-item">• يمكنك طباعة صفحات الكتاب للمراجعة الورقية أو قراءته عبر أي تطبيق يدعم PDF.</div>
+              <div class="step-item">• رابط التحميل متاح دائماً، ويمكنك العودة لهذا البريد في أي وقت لإعادة التحميل.</div>
             </div>
           ` : `
-            <p style="font-weight: bold; margin-bottom: 5px;">🔑 كود التفعيل المخصص لك:</p>
-            <div class="code-box">${activationCode}</div>
-            <p>يمكنك استخدام هذا الكود لتفعيل اشتراكك والدخول إلى كافة دروس ومحتويات الدورة.</p>
+            <!-- بطاقة كود التفعيل المخصص للدورة -->
+            <div class="code-container">
+              <div class="code-title">🔑 كود التفعيل المخصص لحسابك (Activation Code):</div>
+              <div class="code-value">${activationCode}</div>
+              <div class="code-note">احتفظ بهذا الكود، ستقوم باستخدامه عند تفعيل الدورة لفتح كافة الدروس.</div>
+            </div>
+
             ${finalAccessUrl ? `
-              <div class="access-box">
-                <div style="font-weight: bold; color: #1e293b; margin-bottom: 6px;">🔗 رابط الوصول المباشر لمحتوى الدورة:</div>
-                <a href="${finalAccessUrl}" style="color: #0284c7; word-break: break-all; font-weight: 600;" target="_blank">${finalAccessUrl}</a>
-              </div>
-              <div style="text-align: center; margin-top: 15px;">
-                <a href="${finalAccessUrl}" class="btn" target="_blank">🚀 الانتقال إلى الدورة ومحتواها الآن</a>
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${finalAccessUrl}" class="btn-action" target="_blank">🚀 الدخول إلى محتوى الدورة الآن</a>
               </div>
             ` : `
-              <div style="text-align: center;">
-                <a href="${frontendUrl}" class="btn">الانتقال إلى المنصة والتفعيل</a>
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${frontendUrl}" class="btn-action" target="_blank">🚀 الانتقال إلى المنصة والتفعيل</a>
               </div>
             `}
+
+            <!-- خطوات التفعيل السريعة -->
+            <div class="steps-card">
+              <div class="steps-title">📝 خطوات تفعيل الدورة في 3 خطوات بسيطة:</div>
+              <div class="step-item">1️⃣ اضغط على زر <strong>"الدخول إلى محتوى الدورة"</strong> أعلاه.</div>
+              <div class="step-item">2️⃣ سجّل دخولك إلى حسابك (أو أنشئ حساباً جديداً بالبريد الإلكتروني).</div>
+              <div class="step-item">3️⃣ الصق كود التفعيل الموضح أعلاه لتفتح لك كافة الدروس والتطبيقات فوراً!</div>
+            </div>
           `}
+
+          <p style="margin-top: 25px; font-size: 14px; color: #64748b;">
+            إذا واجهتك أي صعوبة أو كان لديك أي استفسار، فريق الدعم الفني لمنصة نجحت جاهز لمساعدتك في أي وقت.
+          </p>
         </div>
+
+        <!-- التذييل -->
         <div class="footer">
-          جميع الحقوق محفوظة © ${new Date().getFullYear()} منصة نجحت التعليمية
+          <div>منصة نجحت التعليمية - طريقك نحو التفوق والنجاح 🎓</div>
+          <div style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
+            جميع الحقوق محفوظة © ${new Date().getFullYear()} Naja7t Platform
+          </div>
         </div>
       </div>
     </body>
@@ -266,12 +492,13 @@ async function sendPurchaseConfirmationEmail({
     }
   }
 
-  // 3. المحاولة عبر SMTP (قد يفشل على Render بسبب حظر منافذ SMTP 25/465/587)
-  const rawUser = process.env.EMAIL_USER || 'oussamabvb201283@gmail.com';
+  // 3. المحاولة عبر SMTP (يدعم Octenium Hosting و cPanel و Gmail)
+  const rawUser = process.env.EMAIL_USER || 'contact@naja7t.com';
   const cleanEmail = rawUser.replace(/.*<|>.*/g, '').trim();
-  const fromAddress = `"منصة نجحت التعليمية" <${cleanEmail}>`;
+  const customFrom = process.env.EMAIL_FROM ? process.env.EMAIL_FROM.trim() : `"منصة نجحت التعليمية" <${cleanEmail}>`;
+  const fromAddress = customFrom.includes('@') ? customFrom : `"منصة نجحت التعليمية" <${cleanEmail}>`;
 
-  const primaryPort = Number(process.env.EMAIL_PORT || 587);
+  const primaryPort = Number(process.env.EMAIL_PORT || 465);
   let transporter = createTransporter(primaryPort);
 
   if (!transporter) {
@@ -289,8 +516,9 @@ async function sendPurchaseConfirmationEmail({
     const info = await transporter.sendMail({
       from: fromAddress,
       to: toEmail.trim(),
-      subject: `🎓 كود التفعيل وسيريال الشراء الخاص بك - منصة نجحت (${productName})`,
-      html: htmlContent
+      subject: emailSubject,
+      html: htmlContent,
+      attachments: attachments
     });
 
     console.log(`✉️ [SMTP Sent Successfully] (Port ${primaryPort}) تم إرسال بريد التأكيد إلى (${toEmail}) برقم سيريال (${serialNumber})! ID: ${info.messageId}`);
@@ -306,8 +534,9 @@ async function sendPurchaseConfirmationEmail({
       const info = await fallbackTransporter.sendMail({
         from: fromAddress,
         to: toEmail.trim(),
-        subject: `🎓 كود التفعيل وسيريال الشراء الخاص بك - منصة نجحت (${productName})`,
-        html: htmlContent
+        subject: emailSubject,
+        html: htmlContent,
+        attachments: attachments
       });
 
       console.log(`✉️ [SMTP Sent Successfully] (Port ${fallbackPort} Fallback) تم إرسال البريد لـ (${toEmail})! ID: ${info.messageId}`);
@@ -316,7 +545,7 @@ async function sendPurchaseConfirmationEmail({
       console.error(`❌ [SMTP Fallback Error - Port ${fallbackPort}] فشل الإرسال أيضاً:`, fallbackErr.message);
       return {
         success: false,
-        error: `Render blocks raw SMTP socket connections (${err.message}). Please use Resend API Key (re_...) or Brevo API Key (xkeysib-...) in EMAIL_PASS.`,
+        error: err.message,
         fallbackError: fallbackErr.message
       };
     }
