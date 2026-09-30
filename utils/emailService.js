@@ -82,9 +82,9 @@ async function sendViaResendApi({ toEmail, customerName, serialNumber, activatio
 /**
  * إنشاء ناقل Nodemailer تقليدي للمستضيفات المحلية أو السيرفرات التي تسمح بـ SMTP
  */
-function createTransporter(customPort = null, customSecure = null) {
-  const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-  const port = customPort || Number(process.env.EMAIL_PORT || 587);
+function createTransporter(customPort = null, customSecure = null, customHost = null) {
+  let host = customHost || (process.env.EMAIL_HOST || 'localhost').trim();
+  const port = customPort || Number(process.env.EMAIL_PORT || 465);
   const rawUser = process.env.EMAIL_USER;
   const rawPass = process.env.EMAIL_PASS;
 
@@ -114,6 +114,11 @@ function createTransporter(customPort = null, customSecure = null) {
     });
   }
 
+  // إذا كان الهوست mail.naja7t.com والنطاق الأساسي مربوط بـ DNS خارجي (مثل Google)، فإن سيرفر بريد cPanel يربط محلياً عبر localhost أو api.naja7t.com
+  if (host === 'mail.naja7t.com') {
+    host = 'localhost';
+  }
+
   const secure = customSecure !== null ? customSecure : (process.env.EMAIL_SECURE === 'true' || port === 465);
 
   return nodemailer.createTransport({
@@ -121,9 +126,9 @@ function createTransporter(customPort = null, customSecure = null) {
     port,
     secure,
     auth: { user, pass },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     tls: {
       rejectUnauthorized: false
     }
@@ -527,10 +532,11 @@ async function sendPurchaseConfirmationEmail({
     console.error(`❌ [SMTP Dispatch Error - Port ${primaryPort}] تعذر الإرسال إلى (${toEmail}):`, err.message);
 
     const fallbackPort = primaryPort === 465 ? 587 : 465;
-    console.log(`🔄 [SMTP Fallback] جاري تجربة الإرسال عبر المنفذ البديل Port ${fallbackPort}...`);
+    const fallbackHost = 'localhost';
+    console.log(`🔄 [SMTP Fallback] جاري تجربة الإرسال عبر المضيف المحلي (${fallbackHost}) والمنفذ Port ${fallbackPort}...`);
 
     try {
-      const fallbackTransporter = createTransporter(fallbackPort, fallbackPort === 465);
+      const fallbackTransporter = createTransporter(fallbackPort, fallbackPort === 465, fallbackHost);
       const info = await fallbackTransporter.sendMail({
         from: fromAddress,
         to: toEmail.trim(),
@@ -539,8 +545,8 @@ async function sendPurchaseConfirmationEmail({
         attachments: attachments
       });
 
-      console.log(`✉️ [SMTP Sent Successfully] (Port ${fallbackPort} Fallback) تم إرسال البريد لـ (${toEmail})! ID: ${info.messageId}`);
-      return { success: true, messageId: info.messageId, port: fallbackPort };
+      console.log(`✉️ [SMTP Sent Successfully] (Localhost Port ${fallbackPort} Fallback) تم إرسال البريد لـ (${toEmail})! ID: ${info.messageId}`);
+      return { success: true, messageId: info.messageId, port: fallbackPort, host: fallbackHost };
     } catch (fallbackErr) {
       console.error(`❌ [SMTP Fallback Error - Port ${fallbackPort}] فشل الإرسال أيضاً:`, fallbackErr.message);
       return {
