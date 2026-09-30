@@ -1,47 +1,65 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// إذا لم يتم تحديد DB_HOST للإنتاج، نعتمد SQLite تلقائياً لضمان العمل التام على Render بدون أخطاء
-const isMySQLConfigured = Boolean(process.env.DB_HOST && process.env.DB_HOST !== 'localhost');
-const dialect = process.env.DB_DIALECT || (isMySQLConfigured ? 'mysql' : 'sqlite');
+// تحديد نوع قاعدة البيانات: mysql افتراضياً للإنتاج ما لم يتم تحديد sqlite صراحة
+const dialect = (process.env.DB_DIALECT || 'mysql').toLowerCase();
+const isMySQL = dialect === 'mysql';
 
 let sequelize;
 
-if (dialect === 'mysql' && isMySQLConfigured) {
+if (isMySQL) {
   try {
     const mysql2 = require('mysql2');
+    const dbHost = process.env.DB_HOST || 'localhost';
+    const dbPort = Number(process.env.DB_PORT || 3306);
+    const dbName = process.env.DB_NAME || 'naja7t_db';
+    const dbUser = process.env.DB_USER || 'root';
+    const dbPassword = process.env.DB_PASSWORD || '';
+
     sequelize = new Sequelize(
-      process.env.DB_NAME || 'naja7t_db',
-      process.env.DB_USER || 'root',
-      process.env.DB_PASSWORD || '',
+      dbName,
+      dbUser,
+      dbPassword,
       {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT || 3306,
+        host: dbHost,
+        port: dbPort,
         dialect: 'mysql',
         dialectModule: mysql2,
         logging: false,
+        timezone: '+01:00', // توقيت الجزائر (GMT+1)
+        dialectOptions: {
+          charset: 'utf8mb4',
+          dateStrings: true,
+          typeCast: true,
+          connectTimeout: 60000
+        },
+        define: {
+          charset: 'utf8mb4',
+          collate: 'utf8mb4_unicode_ci',
+          timestamps: true
+        },
         pool: {
-          max: 10,
+          max: 15,
           min: 0,
-          acquire: 30000,
+          acquire: 60000,
           idle: 10000
         }
       }
     );
-    console.log(`🐬 تم الاتصال بقاعدة بيانات MySQL (${process.env.DB_HOST})`);
+    console.log(`🐬 تم تهيئة الاتصال بقاعدة بيانات MySQL (${dbHost}:${dbPort}/${dbName}) بنجاح!`);
   } catch (err) {
-    console.error('❌ خطأ في إعداد اتصال MySQL:', err.message);
+    console.error('❌ خطأ في إعداد مكتبة MySQL2:', err.message);
   }
 }
 
-// التكيف التلقائي مع SQLite في حال عدم ربط سيرفر MySQL خارجي
+// التكيف التلقائي مع SQLite في بيئة التطوير أو عند تعذر MySQL
 if (!sequelize) {
   try {
     const sqlite3 = require('sqlite3');
     sequelize = new Sequelize({
       dialect: 'sqlite',
       dialectModule: sqlite3,
-      storage: process.env.DB_STORAGE || './naja7t.sqlite',
+      storage: process.env.DB_STORAGE || './naja7t_v2.sqlite',
       logging: false
     });
     console.log('📦 تم استخدام قاعدة البيانات المستقلة: SQLite');
@@ -54,11 +72,14 @@ if (!sequelize) {
 async function initDatabase() {
   try {
     await sequelize.authenticate();
-    console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${sequelize.getDialect().toUpperCase()})`);
+    const currentDialect = sequelize.getDialect().toUpperCase();
+    console.log(`✅ تم الاتصال بنجاح بقاعدة البيانات (${currentDialect})`);
+    
+    // استدعاء النماذج ومزامنة الجداول
     require('../models');
     await sequelize.sync();
 
-    // فحص وإضافة أي أعمدة مفقودة في SQLite تلقائياً
+    // فحص وإضافة أي أعمدة مفقودة في SQLite تلقائياً عند العمل بـ SQLite
     if (sequelize.getDialect() === 'sqlite') {
       try {
         // 1. activation_codes.expires_at
@@ -71,7 +92,7 @@ async function initDatabase() {
           }
         }
 
-        // 2. products.type & products.file_url
+        // 2. products (type, file_url, access_url)
         const [prodResults] = await sequelize.query("PRAGMA table_info('products');");
         if (prodResults && prodResults.length > 0) {
           const hasType = prodResults.some(col => col.name === 'type');
@@ -105,10 +126,14 @@ async function initDatabase() {
       }
     }
 
-    console.log('🔄 تم فحص ومزامنة الجداول بنجاح!');
+    console.log(`🔄 تم فحص ومزامنة جداول قاعدة البيانات (${currentDialect}) بنجاح!`);
     return true;
   } catch (error) {
-    console.error('❌ خطأ في الاتصال بقاعدة البيانات:', error.message);
+    console.error('❌ خطأ في الاتصال بقاعدة البيانات:');
+    console.error(error.message);
+    if (dialect === 'mysql') {
+      console.warn('💡 تأكد من صحة بيانات الاتصال في ملف .env (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD) ومن تشغيل خادم MySQL.');
+    }
     return false;
   }
 }
