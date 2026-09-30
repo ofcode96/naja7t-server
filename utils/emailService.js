@@ -172,288 +172,160 @@ async function sendPurchaseConfirmationEmail({
   }] : [];
 
   const logoHtml = hasLogo
-    ? `<img src="cid:naja7t-logo" alt="منصة نجحت التعليمية" style="max-height: 75px; width: auto; display: block; margin: 0 auto;" />`
-    : `<div style="font-size: 26px; font-weight: 800; color: #ff6600; text-align: center;">🎓 منصة نجحت</div>`;
+    ? `<img src="cid:naja7t-logo" alt="منصة نجحت التعليمية" width="130" style="display: block; width: 130px; max-width: 130px; height: auto; margin: 0 auto;" />`
+    : `<div style="font-size: 24px; font-weight: 900; color: #ff6600; text-align: center; font-family: 'Segoe UI', Tahoma, sans-serif;">🎓 منصة نجحت</div>`;
 
-  // قالب البريد المخصص (RTL بالكامل وبألوان البراند الرسمية)
+  // قالب البريد المطور: مخصص للهاتف أولاً (Mobile-First)، يعتمد على جداول HTML والبرتقالي الصافي للعلامة التجارية
   const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="ar" dir="rtl">
     <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>${emailSubject}</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, Arial, sans-serif;
-          background-color: #f1f5f9;
-          margin: 0;
-          padding: 20px 10px;
-          color: #1e293b;
-          direction: rtl;
-          text-align: right;
-        }
-        .email-wrapper {
-          max-width: 600px;
-          margin: 0 auto;
-          background-color: #ffffff;
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.06);
-          border: 1px solid #e2e8f0;
-        }
-        .header-logo {
-          background-color: #ffffff;
-          padding: 25px 20px 15px 20px;
-          text-align: center;
-          border-bottom: 2px solid #f8fafc;
-        }
-        .banner {
-          background: linear-gradient(135deg, ${isBook ? '#1e40af 0%, #3b82f6 100%' : '#ea580c 0%, #ff6600 100%'});
-          color: #ffffff;
-          padding: 20px;
-          text-align: center;
-        }
-        .banner h1 {
-          margin: 0;
-          font-size: 22px;
-          font-weight: 800;
-        }
-        .banner p {
-          margin: 6px 0 0 0;
-          font-size: 14px;
-          opacity: 0.95;
-        }
-        .content {
-          padding: 30px 25px;
-          line-height: 1.8;
-        }
-        .greeting {
-          font-size: 19px;
-          font-weight: 700;
-          color: #0f172a;
-          margin-bottom: 12px;
-        }
-        .order-card {
-          background-color: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-right: 4px solid ${isBook ? '#3b82f6' : '#ff6600'};
-          border-radius: 10px;
-          padding: 18px 20px;
-          margin: 22px 0;
-        }
-        .order-card-title {
-          font-weight: 700;
-          font-size: 15px;
-          color: ${isBook ? '#1d4ed8' : '#c2410c'};
-          margin-bottom: 10px;
-        }
-        .order-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 4px 0;
-          font-size: 14px;
-        }
-        .badge {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 700;
-        }
-        .badge-success {
-          background-color: #dcfce7;
-          color: #15803d;
-        }
-        .code-container {
-          background: #0f172a;
-          border: 2px dashed #ff6600;
-          border-radius: 12px;
-          padding: 22px;
-          text-align: center;
-          margin: 25px 0;
-        }
-        .code-title {
-          font-size: 14px;
-          color: #fed7aa;
-          font-weight: 700;
-          margin-bottom: 8px;
-        }
-        .code-value {
-          font-size: 26px;
-          font-weight: 900;
-          letter-spacing: 3px;
-          color: #ff6600;
-          font-family: monospace;
-          background: #1e293b;
-          padding: 10px 20px;
-          border-radius: 8px;
-          display: inline-block;
-          margin: 6px 0;
-        }
-        .code-note {
-          font-size: 12px;
-          color: #94a3b8;
-          margin-top: 8px;
-        }
-        .download-container {
-          background: #eff6ff;
-          border: 2px solid #bfdbfe;
-          border-radius: 12px;
-          padding: 25px 20px;
-          text-align: center;
-          margin: 25px 0;
-        }
-        .download-title {
-          font-size: 17px;
-          font-weight: 800;
-          color: #1e3a8a;
-          margin-bottom: 8px;
-        }
-        .download-desc {
-          font-size: 14px;
-          color: #475569;
-          margin: 0 0 18px 0;
-          line-height: 1.6;
-        }
-        .steps-card {
-          background-color: #fff7ed;
-          border: 1px solid #ffedd5;
-          border-radius: 10px;
-          padding: 16px 20px;
-          margin: 20px 0;
-          font-size: 14px;
-        }
-        .steps-title {
-          font-weight: 700;
-          color: #9a3412;
-          margin-bottom: 8px;
-        }
-        .step-item {
-          margin: 6px 0;
-          color: #7c2d12;
-        }
-        .btn-action {
-          display: inline-block;
-          background-color: ${isBook ? '#2563eb' : '#ff6600'};
-          color: #ffffff !important;
-          padding: 14px 32px;
-          text-decoration: none;
-          border-radius: 8px;
-          font-weight: 700;
-          font-size: 16px;
-          text-align: center;
-          margin: 10px auto;
-          box-shadow: 0 4px 12px ${isBook ? 'rgba(37,99,235,0.3)' : 'rgba(255,102,0,0.3)'};
-        }
-        .footer {
-          background-color: #f8fafc;
-          padding: 20px;
-          text-align: center;
-          font-size: 13px;
-          color: #64748b;
-          border-top: 1px solid #e2e8f0;
-          line-height: 1.6;
-        }
-      </style>
     </head>
-    <body>
-      <div class="email-wrapper">
-        <!-- شعار منصة نجحت الرسمي -->
-        <div class="header-logo">
-          ${logoHtml}
-        </div>
+    <body style="margin: 0; padding: 15px 5px; background-color: #f4f5f7; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; direction: rtl; text-align: right;">
+      
+      <!-- الحاوية الرئيسية المتوافقة مع جميع شاشات الهواتف -->
+      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7;">
+        <tr>
+          <td align="center">
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+              
+              <!-- ترويسة الشعار الرسمي -->
+              <tr>
+                <td align="center" style="padding: 22px 15px 16px 15px; background-color: #ffffff;">
+                  ${logoHtml}
+                </td>
+              </tr>
 
-        <!-- البانر العلوي -->
-        <div class="banner">
-          <h1>${isBook ? '📚 تسليم الكتاب الإلكتروني' : '🎓 تأكيد وتفعيل الاشتراك'}</h1>
-          <p>${isBook ? 'نسختك الإلكترونية الرقمية الأصلية جاهزة للتحميل' : 'مبارك انضمامك لأسرة منصة نجحت التعليمية'}</p>
-        </div>
+              <!-- شريط البراند البرتقالي الأنيق -->
+              <tr>
+                <td style="height: 4px; background: linear-gradient(90deg, #ff6600 0%, #ff8533 50%, #ffa726 100%); font-size: 0; line-height: 0;">&nbsp;</td>
+              </tr>
 
-        <!-- محتوى الرسالة -->
-        <div class="content">
-          <div class="greeting">مرحباً ${customerName}،</div>
-          <p>
-            ${isBook
-              ? 'شكراً لاختيارك منصة نجحت التعليمية! تم تأكيد عملية الدفع بنجاح وأصبح كتابك الرقمي جاهزاً للتحميل المباشر.'
-              : 'شكراً لثقتك واشتراكك في منصة نجحت التعليمية! تم استلام وتأكيد عملية الدفع بنجاح، ويسعدنا مرافقتك في مشوار تفوقك الدراسي.'}
-          </p>
+              <!-- شارة نوع المنتج العلوية -->
+              <tr>
+                <td align="center" style="background-color: #fff7ed; padding: 12px 15px; border-bottom: 1px solid #ffedd5;">
+                  <span style="font-size: 13px; font-weight: 800; color: #ea580c; background-color: #ffedd5; padding: 5px 14px; border-radius: 20px; display: inline-block;">
+                    ${isBook ? '📚 تسليم الكتاب الإلكتروني' : '🎓 اشتراك الدورة التعليمية'}
+                  </span>
+                </td>
+              </tr>
 
-          <!-- بطاقة تفاصيل الطلب -->
-          <div class="order-card">
-            <div class="order-card-title">📦 تفاصيل طلب الشراء:</div>
-            <div class="order-row">
-              <strong>${isBook ? 'الكتاب المطلوب:' : 'الدورة التدريبية:'}</strong>
-              <span>${productName}</span>
-            </div>
-            <div class="order-row">
-              <strong>رقم السيريال الخاص بك:</strong>
-              <span style="font-family: monospace; font-weight: bold; color: ${isBook ? '#2563eb' : '#ff6600'};">${serialNumber}</span>
-            </div>
-            <div class="order-row">
-              <strong>حالة العملية:</strong>
-              <span class="badge badge-success">مدفوع ومؤكد بنجاح ✅</span>
-            </div>
-          </div>
+              <!-- المحتوى الرئيسي للرسالة -->
+              <tr>
+                <td style="padding: 24px 20px; direction: rtl; text-align: right; color: #1e293b; font-size: 15px; line-height: 1.7;">
+                  
+                  <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+                    مرحباً ${customerName} 👋
+                  </div>
+                  
+                  <p style="margin: 0 0 18px 0; color: #475569; font-size: 14px;">
+                    ${isBook
+                      ? 'شكراً لاختيارك منصة نجحت! تم تأكيد طلبك بنجاح، وأصبح كتابك الإلكتروني جاهزاً للتحميل المباشر وقراءته في أي وقت.'
+                      : 'شكراً لاشتراكك في منصة نجحت التعليمية! تم تأكيد عملية الدفع بنجاح، ويسعدنا مرافقتك في مشوار تفوقك الدراسي.'}
+                  </p>
 
-          ${isBook ? `
-            <!-- بطاقة تحميل الكتاب الإلكتروني (بدون أي كود تفعيل) -->
-            <div class="download-container">
-              <div style="font-size: 38px; margin-bottom: 8px;">📖</div>
-              <div class="download-title">نسختك الأصلية بصيغة (PDF) جاهزة الآن!</div>
-              <p class="download-desc">
-                يمكنك تحميل الكتاب وحفظه على هاتفك الذكي أو جهازك اللوحي أو الحاسوب، والاطلاع عليه ومراجعته في أي وقت بدون إنترنت.
-              </p>
-              <div style="text-align: center; margin: 15px 0;">
-                <a href="${finalDownloadLink}" class="btn-action" target="_blank">📥 تحميل الكتاب الإلكتروني (PDF)</a>
-              </div>
-            </div>
+                  ${isBook ? `
+                    <!-- بطاقة تحميل الكتاب الإلكتروني (بدون أي كود تفعيل) -->
+                    <div style="background-color: #fff7ed; border: 2px solid #fed7aa; border-radius: 14px; padding: 20px 14px; text-align: center; margin: 18px 0;">
+                      <div style="font-size: 36px; line-height: 1; margin-bottom: 6px;">📖</div>
+                      <div style="font-size: 16px; font-weight: 800; color: #9a3412; margin-bottom: 4px;">
+                        نسختك الأصلية (PDF) جاهزة الآن!
+                      </div>
+                      <div style="font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.5;">
+                        تم إعداد نسختك الرقمية بجودة عالية. يمكنك تحميلها والاحتفاظ بها على هاتفك للقراءة بدون إنترنت.
+                      </div>
+                      
+                      <!-- زر التحميل الرئيسي المتناسق مع الهاتف -->
+                      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                        <tr>
+                          <td align="center">
+                            <a href="${finalDownloadLink}" target="_blank" style="background-color: #ff6600; background: linear-gradient(135deg, #ff7700 0%, #ff5500 100%); color: #ffffff !important; font-size: 16px; font-weight: 800; text-decoration: none; padding: 15px 20px; border-radius: 12px; display: block; width: 100%; box-sizing: border-box; text-align: center; box-shadow: 0 4px 14px rgba(255, 102, 0, 0.35);">
+                              📥 اضغط هنا لتحميل الكتاب الآن (PDF)
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
 
-            <div class="steps-card">
-              <div class="steps-title">💡 نصيحة للقارئ:</div>
-              <div class="step-item">• يمكنك طباعة صفحات الكتاب للمراجعة الورقية أو قراءته عبر أي تطبيق يدعم PDF.</div>
-              <div class="step-item">• رابط التحميل متاح دائماً، ويمكنك العودة لهذا البريد في أي وقت لإعادة التحميل.</div>
-            </div>
-          ` : `
-            <!-- بطاقة كود التفعيل المخصص للدورة -->
-            <div class="code-container">
-              <div class="code-title">🔑 كود التفعيل المخصص لحسابك (Activation Code):</div>
-              <div class="code-value">${activationCode}</div>
-              <div class="code-note">احتفظ بهذا الكود، ستقوم باستخدامه عند تفعيل الدورة لفتح كافة الدروس.</div>
-            </div>
+                    <!-- إرشادات للقارئ -->
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin: 16px 0; font-size: 12px; color: #64748b; line-height: 1.6;">
+                      💡 <strong>نصيحة:</strong> يمكنك طباعة صفحات الكتاب للمراجعة الورقية أو قراءته عبر أي تطبيق PDF، ورابط التحميل متاح دائماً عبر هذا البريد.
+                    </div>
+                  ` : `
+                    <!-- بطاقة كود التفعيل المخصص للدورة -->
+                    <div style="background-color: #fff7ed; border: 2px dashed #ff6600; border-radius: 14px; padding: 18px 14px; text-align: center; margin: 18px 0;">
+                      <div style="font-size: 13px; font-weight: 800; color: #c2410c; margin-bottom: 6px;">
+                        🔑 كود التفعيل المخصص لحسابك
+                      </div>
+                      <div style="font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #ea580c; background-color: #ffffff; border: 1px solid #fed7aa; padding: 10px 16px; border-radius: 10px; display: inline-block; font-family: 'Courier New', Courier, monospace; margin: 6px 0; -webkit-user-select: all; user-select: all;">
+                        ${activationCode}
+                      </div>
+                      <div style="font-size: 11px; color: #9a3412; margin-top: 4px;">
+                        اضغط مطولاً على الكود لنسخه واستخدامه عند التفعيل
+                      </div>
+                    </div>
 
-            ${finalAccessUrl ? `
-              <div style="text-align: center; margin: 20px 0;">
-                <a href="${finalAccessUrl}" class="btn-action" target="_blank">🚀 الدخول إلى محتوى الدورة الآن</a>
-              </div>
-            ` : `
-              <div style="text-align: center; margin: 20px 0;">
-                <a href="${frontendUrl}" class="btn-action" target="_blank">🚀 الانتقال إلى المنصة والتفعيل</a>
-              </div>
-            `}
+                    <!-- زر الدخول للدورة المخصص للهاتف -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 18px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${finalAccessUrl || frontendUrl}" target="_blank" style="background-color: #ff6600; background: linear-gradient(135deg, #ff7700 0%, #ff5500 100%); color: #ffffff !important; font-size: 16px; font-weight: 800; text-decoration: none; padding: 15px 20px; border-radius: 12px; display: block; width: 100%; box-sizing: border-box; text-align: center; box-shadow: 0 4px 14px rgba(255, 102, 0, 0.35);">
+                            🚀 الدخول إلى محتوى الدورة الآن
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
 
-            <!-- خطوات التفعيل السريعة -->
-            <div class="steps-card">
-              <div class="steps-title">📝 خطوات تفعيل الدورة في 3 خطوات بسيطة:</div>
-              <div class="step-item">1️⃣ اضغط على زر <strong>"الدخول إلى محتوى الدورة"</strong> أعلاه.</div>
-              <div class="step-item">2️⃣ سجّل دخولك إلى حسابك (أو أنشئ حساباً جديداً بالبريد الإلكتروني).</div>
-              <div class="step-item">3️⃣ الصق كود التفعيل الموضح أعلاه لتفتح لك كافة الدروس والتطبيقات فوراً!</div>
-            </div>
-          `}
+                    <!-- خطوات التفعيل السريعة للهاتف -->
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin: 16px 0; font-size: 13px; line-height: 1.6;">
+                      <div style="font-weight: 800; color: #1e293b; margin-bottom: 6px;">📱 خطوات التفعيل في 3 خطوات بسيطة:</div>
+                      <div style="color: #475569; margin: 3px 0;">1️⃣ اضغط على الزر البرتقالي أعلاه.</div>
+                      <div style="color: #475569; margin: 3px 0;">2️⃣ سجّل دخولك بحسابك على المنصة.</div>
+                      <div style="color: #475569; margin: 3px 0;">3️⃣ الصق كود التفعيل لتفتح لك كامل الدروس فوراً!</div>
+                    </div>
+                  `}
 
-          <p style="margin-top: 25px; font-size: 14px; color: #64748b;">
-            إذا واجهتك أي صعوبة أو كان لديك أي استفسار، فريق الدعم الفني لمنصة نجحت جاهز لمساعدتك في أي وقت.
-          </p>
-        </div>
+                  <!-- جدول تفاصيل الطلب المتناسق والمضبوط للهواتف -->
+                  <table width="100%" cellpadding="8" cellspacing="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 16px 0; font-size: 13px; color: #334155; direction: rtl;">
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                      <td style="color: #64748b; padding: 8px 12px;"><strong>${isBook ? 'الكتاب:' : 'الدورة:'}</strong></td>
+                      <td style="color: #0f172a; font-weight: bold; text-align: left; padding: 8px 12px;">${productName}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                      <td style="color: #64748b; padding: 8px 12px;"><strong>سيريال الطلب:</strong></td>
+                      <td style="color: #ea580c; font-family: monospace; font-weight: bold; text-align: left; padding: 8px 12px;">${serialNumber}</td>
+                    </tr>
+                    <tr>
+                      <td style="color: #64748b; padding: 8px 12px;"><strong>حالة العملية:</strong></td>
+                      <td style="color: #16a34a; font-weight: bold; text-align: left; padding: 8px 12px;">مؤكد ومدفوع بنجاح ✅</td>
+                    </tr>
+                  </table>
 
-        <!-- التذييل -->
-        <div class="footer">
-          <div>منصة نجحت التعليمية - طريقك نحو التفوق والنجاح 🎓</div>
-          <div style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
-            جميع الحقوق محفوظة © ${new Date().getFullYear()} Naja7t Platform
-          </div>
-        </div>
-      </div>
+                  <p style="margin: 20px 0 0 0; font-size: 12px; color: #94a3b8; text-align: center;">
+                    إذا واجهتك أي صعوبة، فريق الدعم الفني لمنصة نجحت جاهز لمساعدتك دائماً.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- تذييل الرسالة -->
+              <tr>
+                <td style="background-color: #faf5f0; padding: 18px 15px; text-align: center; border-top: 1px solid #fed7aa; font-size: 12px; color: #78716c; line-height: 1.6;">
+                  <div style="font-weight: 800; color: #44403c; margin-bottom: 3px;">منصة نجحت التعليمية 🎓</div>
+                  <div>طريقك نحو التميز والتفوق الدراسي</div>
+                  <div style="margin-top: 6px; font-size: 11px; color: #a8a29e;">
+                    جميع الحقوق محفوظة © ${new Date().getFullYear()} Naja7t Platform
+                  </div>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+
     </body>
     </html>
   `;
