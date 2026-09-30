@@ -1,5 +1,13 @@
 const { ChargilyClient, verifySignature } = require('@chargily/chargily-pay');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 
 const secretKey = process.env.CHARGILY_SECRET_KEY || '';
 const isConfigured = secretKey && !secretKey.includes('your_chargily_secret_key');

@@ -1,5 +1,13 @@
 const nodemailer = require('nodemailer');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 
 /**
  * محاولة الإرسال عبر Brevo HTTP API المباشر (Port 443 - غير محظور في الاستضافات)
@@ -263,8 +271,14 @@ async function sendPurchaseConfirmationEmail({
   let transporter = createTransporter(primaryPort);
 
   if (!transporter) {
-    console.warn(`⚠️ [Email Service] لم يتم تهيئة إعدادات SMTP في ملف .env. تم تجاوز الإرسال لـ ${toEmail}`);
-    return { success: false, reason: 'SMTP credentials not configured in .env' };
+    let reason = 'SMTP credentials not configured in .env';
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      reason = 'EMAIL_USER or EMAIL_PASS is missing in environment (.env not loaded or variables empty)';
+    } else if (process.env.EMAIL_PASS.includes('your_') || process.env.EMAIL_USER.includes('your_')) {
+      reason = 'EMAIL_PASS or EMAIL_USER still contains template placeholder (your_...)';
+    }
+    console.warn(`⚠️ [Email Service] ${reason}. تم تجاوز الإرسال لـ ${toEmail}`);
+    return { success: false, reason };
   }
 
   try {

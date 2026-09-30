@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { resetDatabase, testEmail, getServerIp } = require('../controllers/adminController');
+const { resetDatabase, testEmail, getServerIp, checkEnvironment } = require('../controllers/adminController');
 
 /**
  * @route   POST /api/admin/reset
@@ -23,5 +23,12 @@ router.get('/test-email', testEmail);
  * @access  Admin
  */
 router.get('/my-ip', getServerIp);
+
+/**
+ * @route   GET /api/admin/env-check
+ * @desc    فحص حالة قراءة ملف .env والمتغيرات على الاستضافة
+ * @access  Admin
+ */
+router.get('/env-check', checkEnvironment);
 
 module.exports = router;

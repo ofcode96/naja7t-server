@@ -120,8 +120,45 @@ const getServerIp = async (req, res) => {
   }
 };
 
+/**
+ * فحص المتغيرات وبيئة الاستضافة بدون كشف كلمات المرور (Diagnostics)
+ * GET /api/admin/env-check
+ */
+const checkEnvironment = (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const rootDir = path.resolve(__dirname, '..');
+  const envFileExists = fs.existsSync(path.join(rootDir, '.env'));
+
+  return res.status(200).json({
+    success: true,
+    server: {
+      cwd: process.cwd(),
+      appDir: rootDir,
+      envFileExists: envFileExists,
+      nodeVersion: process.version
+    },
+    database: {
+      dialect: (process.env.DB_DIALECT || 'mysql').toUpperCase(),
+      host: process.env.DB_HOST || 'not set (using localhost)',
+      port: process.env.DB_PORT || '3306',
+      name: process.env.DB_NAME || 'not set',
+      user: process.env.DB_USER || 'not set (using root)',
+      isPasswordSet: Boolean(process.env.DB_PASSWORD && process.env.DB_PASSWORD.trim().length > 0)
+    },
+    smtp: {
+      host: process.env.EMAIL_HOST || 'not set',
+      port: process.env.EMAIL_PORT || 'not set',
+      user: process.env.EMAIL_USER || 'not set',
+      isPassSet: Boolean(process.env.EMAIL_PASS && process.env.EMAIL_PASS.trim().length > 0),
+      isPassPlaceholder: Boolean(process.env.EMAIL_PASS && process.env.EMAIL_PASS.includes('your_'))
+    }
+  });
+};
+
 module.exports = {
   resetDatabase,
   testEmail,
-  getServerIp
+  getServerIp,
+  checkEnvironment
 };

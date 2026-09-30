@@ -1,5 +1,13 @@
 const crypto = require('crypto');
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+const envPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 
 const ALGORITHM = 'aes-256-cbc';
 const SECRET_KEY_RAW = process.env.ENCRYPTION_SECRET || 'naja7t_secret_key_encryption_2026_dzd';

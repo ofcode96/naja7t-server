@@ -1,6 +1,16 @@
+const path = require('path');
+const fs = require('fs');
+
+// تحميل ملف .env بمسار مطلق لضمان قراءته عند تشغيل السيرفر عبر Phusion Passenger أو cPanel أو PM2
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
+
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const { initDatabase, sequelize } = require('./config/db');
 

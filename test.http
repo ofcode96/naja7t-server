@@ -1,62 +1,103 @@
-# GET https://naja7t-server.onrender.com/api/purchase/test
+### ========================================================
+### ⚙️ متغيرات الإعداد السريع للاختبار
+### استبدل الرابط أدناه برابط استضافتك الجديد (مثال: https://api.yourdomain.com)
+### أو اتركه http://localhost:5000 إذا كنت تختبر محلياً
+### ========================================================
+@baseUrl = http://localhost:5000
+@adminEmail = oussamabvb201283@gmail.com
 
-# POST https://naja7t-server.onrender.com/api/purchase/checkout
-# Content-Type: application/json
+### ========================================================
+### 1️⃣ فحص صحة السيرفر ونوع قاعدة البيانات (Health Check)
+### ========================================================
+# هذا الطلب سيؤكد لك أن السيرفر يعمل ومتصل بـ MYSQL
+GET {{baseUrl}}/
+Accept: application/json
 
-# {
-#   "courseId": "BEM-PACK"
-  
-# }
+### ========================================================
+### 2️⃣ اختبار إرسال البريد الإلكتروني (SMTP Test)
+### ========================================================
+# يرسل إيميل تجريبي لبريدك للتأكد من أن الاستضافة ترسل الإيميلات بنجاح
+POST {{baseUrl}}/api/admin/test-email
+Content-Type: application/json
 
-# GET https://naja7t-server.onrender.com/api/customers
-# Content-Type: application/json
+{
+  "email": "{{adminEmail}}"
+}
 
-# GET https://naja7t-server.onrender.com/api/activation-codes
-# Content-Type: application/json
+### ========================================================
+### 3️⃣ فحص عنوان IP الخارجي للسيرفر
+### ========================================================
+GET {{baseUrl}}/api/admin/my-ip
 
-# POST https://naja7t-server.onrender.com/api/activation-codes
-# Content-Type: application/json
+### ========================================================
+### 4️⃣ إضافة منتج تجريبي (دورة تعليمية أو كتاب إلكتروني)
+### ========================================================
+# نوع دورة (course)
+POST {{baseUrl}}/api/products
+Content-Type: application/json
 
-# {
-#   "code": "BEM-PACK-2024",
-#   "product_id": "BEM-PACK",
-#   "expires_at": "2027-12-31T23:59:59Z"
-# }
+{
+  "code": "BEM-PACK",
+  "name": "باقة نجحت المتكاملة لشهادة التعليم المتوسط BEM",
+  "description": "دورة شاملة لجميع دروس ومراجعات BEM",
+  "price": 2900,
+  "type": "course",
+  "access_url": "https://naja7t.com/courses/bem-pack",
+  "is_active": true
+}
 
-# GET https://naja7t-server.onrender.com/api/students
-# Content-Type: application/json
+### إضافة منتج كتاب إلكتروني (ebook)
+POST {{baseUrl}}/api/products
+Content-Type: application/json
 
+{
+  "code": "MATH-EBOOK-BEM",
+  "name": "كتاب التميز في الرياضيات BEM",
+  "description": "كتاب إلكتروني بصيغة PDF يحتوي ملخصات ونماذج محلولة",
+  "price": 1200,
+  "type": "ebook",
+  "file_url": "https://naja7t.com/downloads/math-ebook.pdf",
+  "is_active": true
+}
 
-# POST https://naja7t-server.onrender.com/api/products
-# Content-Type: application/json
+### ========================================================
+### 5️⃣ جلب قائمة جميع المنتجات المخزنة في MySQL
+### ========================================================
+GET {{baseUrl}}/api/products
+Accept: application/json
 
-# {
-#     "code": "BEM-PACK",
-#     "name":  "باقة نجحت المتكاملة",
-#     "description": "الباقة الاقوى لتلاميذ السنة الرابعة متوسط BEM ",
-#     "price": 2900,
-#     "is_active": true
-# }
+### ========================================================
+### 6️⃣ توليد كود تفعيل لدورة يدوياً (للتجربة)
+### ========================================================
+POST {{baseUrl}}/api/activation-codes
+Content-Type: application/json
 
-# GET https://naja7t-server.onrender.com/api/products
-# Content-Type: application/json
+{
+  "code": "BEM-TEST-2026",
+  "product_id": "BEM-PACK",
+  "expires_at": "2027-12-31T23:59:59Z"
+}
 
-# GET https://naja7t-server.onrender.com/api/admin/test-email
-# Content-Type: application/json
+### فحص أكواد التفعيل المسجلة
+GET {{baseUrl}}/api/activation-codes
 
-# {
-#   "email": "oussamabvb201283@gmail.com"
-# }
+### ========================================================
+### 7️⃣ اختبار عملية الشراء وتوليد رابط شارجيلي (Checkout)
+### ========================================================
+POST {{baseUrl}}/api/purchase/checkout
+Content-Type: application/json
 
+{
+  "courseId": "BEM-PACK",
+  "customer": {
+    "name": "أسامة بوعلام",
+    "email": "{{adminEmail}}",
+    "phone": "0555123456"
+  }
+}
 
-POST https://naja7t-server.onrender.com/api/customers/1/resend-email
-
-# GET https://naja7t-server.onrender.com/api/admin/my-ip
-
-# POST https://naja7t-server.onrender.com/api/admin/reset
-# Content-Type: application/json
-
-# {
-#   "target": "all",
-#   "seed": false
-# }
+### ========================================================
+### 8️⃣ جلب قائمة المشترين والطلبات (Customers)
+### ========================================================
+GET {{baseUrl}}/api/customers
+Accept: application/json
